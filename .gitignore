@@ -1,0 +1,47 @@
+# ============================
+# Python
+# ============================
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# ============================
+# Environment
+# ============================
+.env
+.venv/
+venv/
+env/
+
+# ============================
+# Jupyter
+# ============================
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+
+# ============================
+# Output & Logs
+# ============================
+output_logs/raw_logs/*.json
+output_logs/annotated_benchmark/*.json
+*.log
+
+# ============================
+# Data (raw & databases — thường quá lớn để push)
+# ============================
+data/raw/
+data/databases/
+!data/raw/.gitkeep
+!data/databases/.gitkeep
+
+# ============================
+# IDE
+# ============================
+.vscode/
+.idea/
+*.swp

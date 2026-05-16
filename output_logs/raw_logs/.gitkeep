@@ -1,0 +1,2 @@
+# Placeholder — raw JSON logs sinh ra từ mỗi lượt chạy pipeline sẽ được lưu ở đây
+# Format: <timestamp>_<entry_id[:8]>.json
