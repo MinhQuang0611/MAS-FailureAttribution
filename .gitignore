@@ -45,3 +45,8 @@ data/databases/
 .vscode/
 .idea/
 *.swp
+
+# ============================
+# Scratch & Temp
+# ============================
+scratch/
