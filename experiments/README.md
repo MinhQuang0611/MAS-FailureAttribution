@@ -7,8 +7,8 @@ the symptom became visible.
 ## Run it
 
 ```bash
-git clone https://github.com/MinhQuang0611/experiment.git
-cd experiment
+git clone https://github.com/MinhQuang0611/MAS-FailureAttribution.git
+cd MAS-FailureAttribution
 
 printf 'OPENAI_API_KEY=sk-...\n' > .env     # gitignored; never commit it
 
