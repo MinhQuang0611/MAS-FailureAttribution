@@ -100,7 +100,7 @@ class NLSQLGenerator:
         trace = "[NLSQL] Calling API"
         plan = ["Parse natural language question"]
         try:
-            resp = requests.post(self.api_url, json=payload, timeout=60)
+            resp = requests.post(self.api_url, json=payload, timeout=300)
             if resp.status_code == 200:
                 data = resp.json()
                 sql = data.get("sql") or ""       # SQL thực sự do nlsql sinh

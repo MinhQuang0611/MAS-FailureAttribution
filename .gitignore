@@ -50,3 +50,26 @@ data/databases/
 # Scratch & Temp
 # ============================
 scratch/
+
+# ============================
+# Experiments (added 2026-08)
+# ============================
+# Vendored baseline repos — reconstructed by experiments/setup_server.sh from
+# pinned commits + baselines/patches/*.patch. Never commit the clones.
+baselines/MAC-SQL/
+baselines/MAG-SQL/
+baselines/CHESS/
+baselines/MARS-SQL/
+
+# All run outputs (logs are large and regenerable)
+output_logs/
+reports/
+
+# Large raw corpora — downloaded by setup_server.sh
+data/raw/
+data/databases/
+data/drspider_benchmark/_magsql/
+data/drspider_benchmark/tables_*.json
+
+# Generated figures
+*.png

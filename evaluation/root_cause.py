@@ -91,10 +91,12 @@ class RootCauseClassifier:
             missing = all_tables - selected_tables
             # Chỉ flag nếu bảng bị bỏ sót và xuất hiện trong gold SQL
             if entry.gold_sql and missing:
-                missing_in_gold = [
-                    t for t in missing
-                    if t.lower() in (entry.gold_sql or "").lower()
-                ]
+                import re
+                missing_in_gold = []
+                gold_lower = (entry.gold_sql or "").lower()
+                for t in missing:
+                    if re.search(rf"\b{re.escape(t.lower())}\b", gold_lower):
+                        missing_in_gold.append(t)
                 if missing_in_gold:
                     return (
                         RootCauseLabel.SCHEMA_MISSING_TABLE,

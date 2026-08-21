@@ -1,0 +1,14 @@
+# Extra dependencies for the failure-attribution experiments.
+# Install after requirements.txt:  pip install -r experiments/requirements-experiments.txt
+#
+# Versions are the ones the experiments were developed and smoke-tested against
+# (Python 3.14). Loose lower bounds so a server with newer wheels still works.
+
+openai>=1.0            # MAC-SQL/MAG-SQL are patched to the >=1.0 client API
+func_timeout>=4.3      # MAC-SQL and MAG-SQL agent timeouts
+rapidfuzz>=3.0         # MAG-SQL bridge_content_encoder value matching
+tqdm>=4.60             # MAG-SQL preprocessing progress
+pandas>=2.0            # MAG-SQL schema handling
+matplotlib>=3.7        # figure regeneration
+numpy>=1.24
+datasets>=2.14         # only for rebuilding mini_benchmark.json from scratch

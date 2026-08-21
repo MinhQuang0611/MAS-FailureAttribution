@@ -1,0 +1,96 @@
+diff --git a/core/api_config.py b/core/api_config.py
+index 63754d3..a17e6a5 100644
+--- a/core/api_config.py
++++ b/core/api_config.py
+@@ -1,17 +1,28 @@
++"""
++PORTED for this study (2026-08).
++
++Upstream MAC-SQL targets Azure OpenAI through the pre-1.0 `openai` SDK
++(`openai.api_type = "azure"`, `openai.ChatCompletion.create(engine=...)`).
++That module-level API was removed in openai>=1.0, and this environment runs
++openai 3.3.1 against the standard (non-Azure) endpoint, so the config is
++rewritten to build a modern client instead.
++
++Only transport is changed. Prompts, agent logic, and control flow are upstream.
++"""
++
+ import os
+-# set your OPENAI_API_BASE, OPENAI_API_KEY here!
+-OPENAI_API_BASE = os.getenv("OPENAI_API_BASE", "your_own_api_base")
+-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "your_own_api_key")
+-
+-import openai
+-openai.api_type = "azure"
+-openai.api_base = OPENAI_API_BASE
+-# set your own api_version
+-openai.api_version = "2023-07-01-preview"
+-openai.api_key = OPENAI_API_KEY
+-
+-MODEL_NAME = 'gpt-4-1106-preview' # 128k 版本
+-# MODEL_NAME = 'CodeLlama-7b-hf'
+-# MODEL_NAME = 'gpt-4-32k' # 0613版本
+-# MODEL_NAME = 'gpt-4' # 0613版本
+-# MODEL_NAME = 'gpt-35-turbo-16k' # 0613版本
+\ No newline at end of file
++
++from openai import OpenAI
++
++OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
++OPENAI_API_BASE = os.getenv("OPENAI_API_BASE") or None
++
++# Model used by every MAC-SQL agent. Kept aligned with the nlsql pipeline's
++# backbone so cross-system comparisons are not confounded by the LLM.
++MODEL_NAME = os.getenv("MACSQL_MODEL", "gpt-4o")
++
++_client_kwargs = {"api_key": OPENAI_API_KEY}
++if OPENAI_API_BASE:
++    _client_kwargs["base_url"] = OPENAI_API_BASE
++
++client = OpenAI(**_client_kwargs)
+diff --git a/core/llm.py b/core/llm.py
+index 51f65c2..9f6fbde 100644
+--- a/core/llm.py
++++ b/core/llm.py
+@@ -29,26 +29,22 @@ def init_log_path(my_log_path):
+     api_trace_json_path = os.path.join(dir_name, 'api_trace.json')
+ 
+ 
+-def api_func(prompt:str):
++def api_func(prompt: str):
++    """PORTED (2026-08): openai>=1.0 client call.
++
++    Upstream used openai.ChatCompletion.create(engine=...) from the pre-1.0
++    SDK, removed in 1.0. Behaviour (single user message, temperature 0.1,
++    stripped text + token counts) is preserved.
++    """
+     global MODEL_NAME
+-    print(f"\nUse OpenAI model: {MODEL_NAME}\n")
+-    if 'Llama' in MODEL_NAME:
+-        openai.api_version = None
+-        openai.api_type = "open_ai"
+-        openai.api_key = "EMPTY"
+-        response = openai.ChatCompletion.create(
+-            model=MODEL_NAME,
+-            messages=[{"role": "user", "content": prompt}]
+-        )
+-    else:
+-        response = openai.ChatCompletion.create(
+-            engine=MODEL_NAME,
+-            messages=[{"role": "user", "content": prompt}],
+-            temperature=0.1
+-        )
+-    text = response['choices'][0]['message']['content'].strip()
+-    prompt_token = response['usage']['prompt_tokens']
+-    response_token = response['usage']['completion_tokens']
++    response = client.chat.completions.create(
++        model=MODEL_NAME,
++        messages=[{"role": "user", "content": prompt}],
++        temperature=0.1,
++    )
++    text = (response.choices[0].message.content or "").strip()
++    prompt_token = response.usage.prompt_tokens
++    response_token = response.usage.completion_tokens
+     return text, prompt_token, response_token
+ 
+ 

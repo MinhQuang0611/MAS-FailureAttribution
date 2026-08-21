@@ -1,0 +1,79 @@
+% running_example.tex — Figure 1
+% Included from conference_101719.tex via \input{running_example}
+% Requires: \usetikzlibrary{shapes.geometric, arrows.meta, positioning}
+%
+% Illustrates the downstream-bias mechanism: a fault injected at the Intent
+% stage propagates forward and is attributed to the Skeleton stage, because
+% backward state-differencing meets the symptom before the cause.
+
+\begin{tikzpicture}[
+  font=\small,
+  stage/.style   = {rectangle, rounded corners=2pt, draw=black!70, thick,
+                    minimum width=2.05cm, minimum height=0.95cm,
+                    align=center, fill=blue!6},
+  faulty/.style  = {stage, fill=orange!22, draw=orange!75!black},
+  blamed/.style  = {stage, fill=red!16, draw=red!70!black},
+  logbox/.style  = {rectangle, draw=black!35, dashed, inner sep=3pt,
+                    align=center, font=\scriptsize, fill=black!2},
+  note/.style    = {align=left, font=\scriptsize, text width=3.5cm},
+  fwd/.style     = {-{Stealth[length=2.2mm]}, thick, black!75},
+  back/.style    = {-{Stealth[length=2.2mm]}, thick, red!70!black, dashed}
+]
+
+% ---------- input ----------
+\node[note, text width=4.4cm, anchor=west] (q) at (0,3.15)
+  {\textbf{Input $x_1$:} ``List the name of all \emph{animations}
+   showed on TV Channel with series name \texttt{Sky Radio}.''\\[1pt]
+   \textcolor{orange!75!black}{\textbf{Perturbation (Intent):}}
+   \emph{cartoons} $\rightarrow$ \emph{animations}};
+
+% ---------- pipeline stages ----------
+\node[faulty] (intent)   at (0.9,1.35) {\textbf{1. Intent}\\\scriptsize agent};
+\node[stage, right=0.85cm of intent]  (schema)   {\textbf{2. Schema}\\\scriptsize agent};
+\node[blamed, right=0.85cm of schema] (skeleton) {\textbf{3. Skeleton}\\\scriptsize agent};
+\node[stage, right=0.85cm of skeleton](exec)     {\textbf{4. Execution}\\\scriptsize agent};
+
+\draw[fwd] (intent)   -- (schema);
+\draw[fwd] (schema)   -- (skeleton);
+\draw[fwd] (skeleton) -- (exec);
+\draw[fwd] ([yshift=-2pt]q.south -| intent.north) -- (intent.north);
+
+% ---------- logging matrix ----------
+\node[logbox, below=0.5cm of intent]   (l1) {$x_1,x_2,x_3$};
+\node[logbox, below=0.5cm of schema]   (l2) {$x_4,x_5,x_6$};
+\node[logbox, below=0.5cm of skeleton] (l3) {$x_7,x_8,x_9$};
+\node[logbox, below=0.5cm of exec]     (l4) {$x_{10}\ldots x_{13}$};
+
+\foreach \s/\l in {intent/l1, schema/l2, skeleton/l3, exec/l4}
+  \draw[black!45, dotted, thick] (\s) -- (\l);
+
+\node[draw=black!45, dashed, rounded corners=2pt, inner sep=5pt,
+      fit=(l1)(l4), label={[font=\scriptsize\bfseries, yshift=-1pt]below:%
+      Logging Matrix (13 state variables)}] (matrix) {};
+
+% ---------- fault propagation ----------
+\node[note, text width=2.6cm, anchor=south, font=\scriptsize]
+  at ([yshift=0.28cm]intent.north)
+  {\textcolor{orange!75!black}{\textbf{True fault}}\\ intent misread};
+
+\node[note, text width=2.7cm, anchor=south, font=\scriptsize]
+  at ([yshift=0.28cm]skeleton.north)
+  {\textcolor{red!70!black}{\textbf{Attributed here}}\\ \texttt{EXEC\_WRONG\_RESULT}};
+
+% ---------- backward diffing ----------
+\draw[back] ([yshift=-0.12cm]exec.south west) .. controls +(-0.8,-0.55) ..
+            ([yshift=-0.12cm]skeleton.south east)
+  node[midway, below, font=\scriptsize, text=red!70!black, yshift=-1pt]
+  {backward diff};
+
+\node[note, text width=7.6cm, anchor=north west, font=\scriptsize]
+  at (-0.35,-1.62)
+  {\textbf{Downstream bias.} The query executes without error but returns the
+   wrong rows. Backward state-differencing scans Execution $\rightarrow$
+   Schema $\rightarrow$ Skeleton $\rightarrow$ Intent and halts at the first
+   deviation it can observe---the structural mismatch at $x_8$---so the
+   \emph{symptom} at stage~3 is reported and the \emph{cause} at stage~1 is
+   never reached. Measured over 398 perturbed instances, stage recall is
+   $0\%$ (Table~\ref{tab:confusion}).};
+
+\end{tikzpicture}

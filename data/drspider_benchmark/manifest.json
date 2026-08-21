@@ -1,0 +1,180 @@
+{
+  "seed": 42,
+  "per_set": 100,
+  "total_instances": 1700,
+  "sets": [
+    {
+      "set": "DB_DBcontent_equivalence",
+      "group": "DB",
+      "target_stage": "Schema Linking Error",
+      "available": 382,
+      "sampled": 100,
+      "skipped_missing_db": 0,
+      "db_dir": "data/databases",
+      "benchmark_file": "data/drspider_benchmark/DB_DBcontent_equivalence.json",
+      "namespaced_suffix": "dbcontent"
+    },
+    {
+      "set": "DB_schema_abbreviation",
+      "group": "DB",
+      "target_stage": "Schema Linking Error",
+      "available": 2853,
+      "sampled": 100,
+      "skipped_missing_db": 0,
+      "db_dir": "data/databases",
+      "benchmark_file": "data/drspider_benchmark/DB_schema_abbreviation.json",
+      "namespaced_suffix": "abbrev"
+    },
+    {
+      "set": "DB_schema_synonym",
+      "group": "DB",
+      "target_stage": "Schema Linking Error",
+      "available": 2619,
+      "sampled": 100,
+      "skipped_missing_db": 0,
+      "db_dir": "data/databases",
+      "benchmark_file": "data/drspider_benchmark/DB_schema_synonym.json",
+      "namespaced_suffix": "synonym"
+    },
+    {
+      "set": "NLQ_column_attribute",
+      "group": "NLQ",
+      "target_stage": "Intent / Ambiguity Error",
+      "available": 119,
+      "sampled": 100,
+      "skipped_missing_db": 0,
+      "db_dir": "data/raw/drspider/Spider-dev/databases",
+      "benchmark_file": "data/drspider_benchmark/NLQ_column_attribute.json"
+    },
+    {
+      "set": "NLQ_column_carrier",
+      "group": "NLQ",
+      "target_stage": "Intent / Ambiguity Error",
+      "available": 579,
+      "sampled": 100,
+      "skipped_missing_db": 0,
+      "db_dir": "data/raw/drspider/Spider-dev/databases",
+      "benchmark_file": "data/drspider_benchmark/NLQ_column_carrier.json"
+    },
+    {
+      "set": "NLQ_column_synonym",
+      "group": "NLQ",
+      "target_stage": "Intent / Ambiguity Error",
+      "available": 563,
+      "sampled": 100,
+      "skipped_missing_db": 0,
+      "db_dir": "data/raw/drspider/Spider-dev/databases",
+      "benchmark_file": "data/drspider_benchmark/NLQ_column_synonym.json"
+    },
+    {
+      "set": "NLQ_column_value",
+      "group": "NLQ",
+      "target_stage": "Intent / Ambiguity Error",
+      "available": 304,
+      "sampled": 100,
+      "skipped_missing_db": 0,
+      "db_dir": "data/raw/drspider/Spider-dev/databases",
+      "benchmark_file": "data/drspider_benchmark/NLQ_column_value.json"
+    },
+    {
+      "set": "NLQ_keyword_carrier",
+      "group": "NLQ",
+      "target_stage": "Intent / Ambiguity Error",
+      "available": 399,
+      "sampled": 100,
+      "skipped_missing_db": 0,
+      "db_dir": "data/raw/drspider/Spider-dev/databases",
+      "benchmark_file": "data/drspider_benchmark/NLQ_keyword_carrier.json"
+    },
+    {
+      "set": "NLQ_keyword_synonym",
+      "group": "NLQ",
+      "target_stage": "Intent / Ambiguity Error",
+      "available": 953,
+      "sampled": 100,
+      "skipped_missing_db": 0,
+      "db_dir": "data/raw/drspider/Spider-dev/databases",
+      "benchmark_file": "data/drspider_benchmark/NLQ_keyword_synonym.json"
+    },
+    {
+      "set": "NLQ_multitype",
+      "group": "NLQ",
+      "target_stage": "Intent / Ambiguity Error",
+      "available": 1351,
+      "sampled": 100,
+      "skipped_missing_db": 0,
+      "db_dir": "data/raw/drspider/Spider-dev/databases",
+      "benchmark_file": "data/drspider_benchmark/NLQ_multitype.json"
+    },
+    {
+      "set": "NLQ_others",
+      "group": "NLQ",
+      "target_stage": "Intent / Ambiguity Error",
+      "available": 2819,
+      "sampled": 100,
+      "skipped_missing_db": 0,
+      "db_dir": "data/raw/drspider/Spider-dev/databases",
+      "benchmark_file": "data/drspider_benchmark/NLQ_others.json"
+    },
+    {
+      "set": "NLQ_value_synonym",
+      "group": "NLQ",
+      "target_stage": "Intent / Ambiguity Error",
+      "available": 506,
+      "sampled": 100,
+      "skipped_missing_db": 0,
+      "db_dir": "data/raw/drspider/Spider-dev/databases",
+      "benchmark_file": "data/drspider_benchmark/NLQ_value_synonym.json"
+    },
+    {
+      "set": "SQL_comparison",
+      "group": "SQL",
+      "target_stage": "Skeleton / Structural Error",
+      "available": 178,
+      "sampled": 100,
+      "skipped_missing_db": 0,
+      "db_dir": "data/raw/drspider/Spider-dev/databases",
+      "benchmark_file": "data/drspider_benchmark/SQL_comparison.json"
+    },
+    {
+      "set": "SQL_DB_number",
+      "group": "SQL",
+      "target_stage": "Skeleton / Structural Error",
+      "available": 410,
+      "sampled": 100,
+      "skipped_missing_db": 0,
+      "db_dir": "data/raw/drspider/Spider-dev/databases",
+      "benchmark_file": "data/drspider_benchmark/SQL_DB_number.json"
+    },
+    {
+      "set": "SQL_DB_text",
+      "group": "SQL",
+      "target_stage": "Skeleton / Structural Error",
+      "available": 911,
+      "sampled": 100,
+      "skipped_missing_db": 0,
+      "db_dir": "data/raw/drspider/Spider-dev/databases",
+      "benchmark_file": "data/drspider_benchmark/SQL_DB_text.json"
+    },
+    {
+      "set": "SQL_NonDB_number",
+      "group": "SQL",
+      "target_stage": "Skeleton / Structural Error",
+      "available": 131,
+      "sampled": 100,
+      "skipped_missing_db": 0,
+      "db_dir": "data/raw/drspider/Spider-dev/databases",
+      "benchmark_file": "data/drspider_benchmark/SQL_NonDB_number.json"
+    },
+    {
+      "set": "SQL_sort_order",
+      "group": "SQL",
+      "target_stage": "Skeleton / Structural Error",
+      "available": 192,
+      "sampled": 100,
+      "skipped_missing_db": 0,
+      "db_dir": "data/raw/drspider/Spider-dev/databases",
+      "benchmark_file": "data/drspider_benchmark/SQL_sort_order.json"
+    }
+  ]
+}
