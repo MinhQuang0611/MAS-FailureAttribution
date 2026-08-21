@@ -116,7 +116,7 @@ OpenAI API directly and need no local services.
 
 ```
 experiments/
-  setup_server.sh              deps, corpora, pinned+patched baselines
+  setup_server.sh              deps, corpora, pinned baselines + overrides
   run_experiments.sh           run systems, then analysis
 scripts_drspider/
   build_drspider_benchmark.py  sample 17 families -> benchmark JSONs
@@ -125,7 +125,7 @@ scripts_drspider/
 baselines/
   macsql_instrumented.py       MAC-SQL + Logging Matrix
   magsql_instrumented.py       MAG-SQL + Logging Matrix
-  patches/*.patch              OpenAI SDK >=1.0 port, env-based config
+  overrides/                   OpenAI SDK >=1.0 transport, env-based config
 evaluation/
   attribution_bias.py          confusion matrix on the 400-instance benchmark
   attribution_strategies.py    alternative orderings, re-scored on saved logs
@@ -135,9 +135,12 @@ evaluation/
 
 ## Reproducibility notes
 
-- Baselines are pinned to exact commits and patched from `baselines/patches/`.
+- Baselines are pinned to exact commits; `baselines/overrides/` replaces their
+  API-transport modules wholesale (a patch would break on any checkout that
+  normalises line endings differently). Run `git -C baselines/<name> diff` after
+  setup to see exactly what differs from upstream.
   The clones are gitignored; `setup_server.sh` reconstructs them.
-- Only transport and configuration are patched. Prompts, agent logic and
+- Only transport and configuration are replaced. Prompts, agent logic and
   control flow are upstream.
 - `attribution_strategies.py` re-scores **saved logs**, so alternative
   attribution rules cost no API calls — attribution is a pure function of the

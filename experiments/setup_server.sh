@@ -97,19 +97,26 @@ clone_pinned() {   # name url sha
     ( cd "baselines/$name" && git checkout --quiet "$sha" )
   fi
 }
-apply_patch() {    # name
-  local name=$1 patch="baselines/patches/$name.patch"
-  [ -f "$patch" ] || return 0
-  if ( cd "baselines/$name" && git apply --check "../patches/$name.patch" 2>/dev/null ); then
-    ( cd "baselines/$name" && git apply "../patches/$name.patch" )
-    echo "  $name patched (OpenAI SDK >=1.0 transport, env-based config)"
-  else
-    echo "  $name patch already applied (or does not apply cleanly) — skipping"
-  fi
+# Overrides rather than patches. These are whole-file replacements of the
+# upstream API-transport modules, so copying them is exact on every platform.
+# A patch would carry surrounding context lines and break the moment a checkout
+# normalises line endings differently (which is exactly what happened on
+# Windows). After setup, `git -C baselines/<name> diff` shows precisely what
+# was changed relative to the pinned upstream commit.
+apply_override() {   # name
+  local name=$1 src="baselines/overrides/$name"
+  [ -d "$src" ] || return 0
+  ( cd "$src" && find . -type f ) | while read -r rel; do
+    rel="${rel#./}"
+    mkdir -p "baselines/$name/$(dirname "$rel")"
+    cp "$src/$rel" "baselines/$name/$rel"
+    echo "    override: $rel"
+  done
+  echo "  $name configured (OpenAI SDK >=1.0 transport, env-based config)"
 }
 
-clone_pinned MAC-SQL "$MACSQL_URL" "$MACSQL_SHA"; apply_patch MAC-SQL
-clone_pinned MAG-SQL "$MAGSQL_URL" "$MAGSQL_SHA"; apply_patch MAG-SQL
+clone_pinned MAC-SQL "$MACSQL_URL" "$MACSQL_SHA"; apply_override MAC-SQL
+clone_pinned MAG-SQL "$MAGSQL_URL" "$MAGSQL_SHA"; apply_override MAG-SQL
 if [ "${WITH_CHESS:-0}" = "1" ]; then
   clone_pinned CHESS "$CHESS_URL" "$CHESS_SHA"
   warn "CHESS is BIRD-only (no Spider support); it cannot use the Dr.Spider benchmark."

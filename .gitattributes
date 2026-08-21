@@ -1,0 +1,2 @@
+baselines/overrides/** text eol=lf
+experiments/*.sh text eol=lf
