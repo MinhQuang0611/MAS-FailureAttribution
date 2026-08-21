@@ -7,12 +7,12 @@
 #
 #   bash experiments/run_experiments.sh                 # MAC-SQL, all 17 sets
 #   SYSTEMS=macsql,nlsql bash experiments/run_experiments.sh
-#   GROUPS="NLQ SQL"     bash experiments/run_experiments.sh
+#   PERT_GROUPS="NLQ SQL"     bash experiments/run_experiments.sh
 #   LIMIT=5              bash experiments/run_experiments.sh   # smoke test
 #
 # Env:
 #   SYSTEMS   comma list: macsql,magsql,nlsql        (default: macsql)
-#   GROUPS    space list: NLQ SQL DB                 (default: all three)
+#   PERT_GROUPS    space list: NLQ SQL DB                 (default: all three)
 #   LIMIT     cap instances per set                  (default: none)
 #   MODEL     LLM backbone for every system          (default: gpt-4o)
 # ---------------------------------------------------------------------------
@@ -23,7 +23,7 @@ cd "$ROOT"
 
 PY="${PYTHON:-python3}"
 SYSTEMS="${SYSTEMS:-macsql}"
-GROUPS="${GROUPS:-NLQ SQL DB}"
+PERT_GROUPS="${PERT_GROUPS:-NLQ SQL DB}"
 MODEL="${MODEL:-gpt-4o}"
 LIMIT_ARG=""
 [ -n "${LIMIT:-}" ] && LIMIT_ARG="--limit ${LIMIT}"
@@ -45,9 +45,9 @@ has() { case ",$SYSTEMS," in *",$1,"*) return 0;; *) return 1;; esac; }
 
 # ---------------------------------------------------------------------------
 if has macsql; then
-  log "MAC-SQL over Dr.Spider  (groups: $GROUPS, model: $MODEL)"
+  log "MAC-SQL over Dr.Spider  (groups: $PERT_GROUPS, model: $MODEL)"
   $PY baselines/macsql_instrumented.py \
-      --groups $GROUPS --model "$MODEL" $LIMIT_ARG \
+      --groups $PERT_GROUPS --model "$MODEL" $LIMIT_ARG \
       2>&1 | tee "output_logs/macsql_${STAMP}.log" \
       | grep -E "^\[[0-9]+/|ok=|elapsed|done:|!!" || true
 fi
@@ -59,7 +59,7 @@ if has magsql; then
   echo "      passes first (value matching, then one LLM call per table per DB)."
   echo "      That cost is paid once and cached to disk, but it is not small."
   $PY baselines/magsql_instrumented.py \
-      --groups $GROUPS --model "$MODEL" $LIMIT_ARG \
+      --groups $PERT_GROUPS --model "$MODEL" $LIMIT_ARG \
       2>&1 | tee "output_logs/magsql_${STAMP}.log" \
       | grep -E "^\[[0-9]+/|ok=|elapsed|done:|!!" || true
 fi
@@ -73,7 +73,7 @@ if has nlsql; then
     echo "  skipping."
   else
     $PY scripts_drspider/run_drspider.py \
-        --groups $GROUPS --model "$MODEL" $LIMIT_ARG \
+        --groups $PERT_GROUPS --model "$MODEL" $LIMIT_ARG \
         2>&1 | tee "output_logs/nlsql_${STAMP}.log" \
         | grep -E "^\[[0-9]+/|elapsed|done|!!" || true
   fi

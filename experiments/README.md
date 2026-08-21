@@ -12,15 +12,26 @@ cd MAS-FailureAttribution
 
 printf 'OPENAI_API_KEY=sk-...\n' > .env     # gitignored; never commit it
 
-bash experiments/setup_server.sh            # deps, corpora, baselines (~20 min)
-bash experiments/run_experiments.sh         # MAC-SQL over all 17 sets
+bash run.sh                                 # setup + run + reports, one shot
 ```
 
-Smoke-test first if the machine is new:
+`run.sh` is the entrypoint: edit its CONFIG block, or override from the
+environment. Smoke-test first on a new machine:
 
 ```bash
-LIMIT=3 bash experiments/run_experiments.sh
+LIMIT=2 bash run.sh                         # ~1 min, a couple of dollars
 ```
+
+Unattended:
+
+```bash
+nohup bash run.sh > run.out 2>&1 &
+tail -f run.out
+```
+
+`experiments/setup_server.sh` and `experiments/run_experiments.sh` are the
+stages `run.sh` calls; run them directly only if you want one without the other
+(`SKIP_SETUP=1` and `ANALYSIS_ONLY=1` cover the usual cases).
 
 Everything resumes. Instances already logged are skipped, so an interrupted run
 continues where it stopped and re-spends nothing. Kill and restart freely.
@@ -73,10 +84,13 @@ The sampled JSONs are committed so every machine scores identical instances.
 | Variable | Default | Meaning |
 |---|---|---|
 | `SYSTEMS` | `macsql` | comma list: `macsql,magsql,nlsql` |
-| `GROUPS` | `NLQ SQL DB` | which perturbation groups |
+| `PERT_GROUPS` | `NLQ SQL DB` | which perturbation groups |
 | `LIMIT` | – | cap instances per set (smoke test) |
 | `MODEL` | `gpt-4o` | backbone for every system |
 | `PER_SET` | `100` | sample size, only when rebuilding the benchmark |
+| `SKIP_SETUP` | `0` | `1` skips setup (already provisioned) |
+| `ANALYSIS_ONLY` | `0` | `1` regenerates reports from existing logs, no API calls |
+| `PYTHON` | `python3` | interpreter to use |
 | `WITH_CHESS` | `0` | also clone CHESS (BIRD-only; see below) |
 
 Keeping one `MODEL` across systems matters: differing backbones would confound
@@ -95,7 +109,7 @@ Measured at ~6 s and ~$0.014 per instance for MAC-SQL on gpt-4o.
 **MAG-SQL carries a preprocessing cost.** Its `Soft_Schema_linker` makes one
 LLM call per table per database before scoring begins, plus a value-matching
 pass over the corpus. Cached to disk, paid once per set, but substantial on the
-`DB_*` sets (40–48 databases each). Run `GROUPS="NLQ SQL"` first.
+`DB_*` sets (40–48 databases each). Run `PERT_GROUPS="NLQ SQL"` first.
 
 **`nlsql` needs its stack up** — `cd nlsql && docker compose up -d` (FastAPI,
 Postgres, Qdrant, Redis, Mongo), API on `:8388`. The other two systems call the
@@ -115,6 +129,7 @@ OpenAI API directly and need no local services.
 ## Layout
 
 ```
+run.sh                         single entrypoint: config, preflight, setup, run
 experiments/
   setup_server.sh              deps, corpora, pinned baselines + overrides
   run_experiments.sh           run systems, then analysis
