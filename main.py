@@ -2,8 +2,8 @@
 main.py — Entry point cho T2SQL Failure Attribution Pipeline
 
 Usage:
-    python main.py --benchmark data/mini_benchmark.json --model gpt-4o --limit 10
-    python main.py --benchmark data/mini_benchmark.json --model gpt-4o --all
+    python main.py --benchmark data/mini_benchmark.json --model gpt-4o-mini --limit 10
+    python main.py --benchmark data/mini_benchmark.json --model gpt-4o-mini --all
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ console = Console()
 )
 @click.option(
     "--model",
-    default="gpt-4o",
+    default="gpt-4o-mini",
     show_default=True,
     help="Tên model LLM sẽ dùng.",
 )

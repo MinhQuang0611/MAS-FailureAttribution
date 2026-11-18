@@ -8,13 +8,19 @@ import os
 
 # PORTED for this study (2026-08): upstream hardcodes the key and base URL
 # here. Read them from the environment instead, and default the backbone to
-# gpt-4o so MAG-SQL, MAC-SQL and the nlsql pipeline all run on the same model —
+# gpt-4o-mini so MAG-SQL, MAC-SQL and the nlsql pipeline all run on the same model —
 # otherwise a cross-system comparison of failure attribution is confounded by
 # the LLM rather than by the pipeline architecture.
-API_Key = os.getenv("OPENAI_API_KEY", "")
-Base_url = os.getenv("OPENAI_API_BASE") or None
+MODEL_NAME = os.getenv("MAGSQL_MODEL", "gpt-4o-mini")
 
-MODEL_NAME = os.getenv("MAGSQL_MODEL", "gpt-4o")
+# PORTED (2026-08): route by model-id shape. OpenRouter ids are namespaced
+# ("openai/gpt-5.6-luna"); a bare id ("gpt-4o") goes to OpenAI directly.
+if "/" in MODEL_NAME:
+    API_Key = os.getenv("OPENROUTER_API_KEY", "")
+    Base_url = os.getenv("OPENAI_API_BASE") or "https://openrouter.ai/api/v1"
+else:
+    API_Key = os.getenv("OPENAI_API_KEY", "")
+    Base_url = os.getenv("OPENAI_API_BASE") or None
 MAX_TRY = 5
 
 # 用来传递外面的字典进来
@@ -47,12 +53,20 @@ def api_func(prompt:str):
 
     client = openai.OpenAI(api_key=API_Key,base_url=Base_url)
     
+    # PORTED (2026-08): gpt-5.x rejects temperature != 1 and renamed
+    # max_tokens -> max_completion_tokens. Both are 400 errors, not warnings,
+    # so the parameters are selected per model rather than hardcoded. Running
+    # at temperature 1 (the only value gpt-5.x accepts) is a real behavioural
+    # difference from the gpt-4o runs and is recorded, not hidden.
+    _m = (MODEL_NAME or "").split("/")[-1].lower()  # drop OpenRouter namespace
+    _new_api = _m.startswith(("gpt-5", "o1", "o3", "o4"))
+    _kw = {"max_completion_tokens": 1000} if _new_api else {
+        "temperature": 0.1, "max_tokens": 1000}
     response = client.chat.completions.create(
         model=MODEL_NAME,
         messages=[{"role": "user", "content": prompt}],
         n = 1,
-        temperature=0.1,
-        max_tokens=1000
+        **_kw
     )
 
     text = response.choices[0].message.content.strip()

@@ -1,0 +1,102 @@
+\begin{thebibliography}{10}
+\providecommand{\url}[1]{\texttt{#1}}
+\providecommand{\urlprefix}{URL }
+\providecommand{\doi}[1]{https://doi.org/#1}
+
+\bibitem{cemri_mast_2025}
+Cemri, M., Pan, M.Z., Yang, S., et~al.: Why do multi-agent {LLM} systems fail?
+  In: NeurIPS (2025)
+
+\bibitem{chang_drspider_2023}
+Chang, S., Wang, J., Dong, M., et~al.: Dr.spider: A diagnostic evaluation
+  benchmark towards text-to-sql robustness. In: ICLR (2023)
+
+\bibitem{chaturvedi_sqlofthought_2025}
+Chaturvedi, S., Chadha, A., Bindschaedler, L.: {SQL-of-Thought}: Multi-agentic
+  text-to-sql with guided error correction. In: NeurIPS 2025 Workshop DL4C
+  (2025), arXiv:2509.00581
+
+\bibitem{gan_spider_syn_2021}
+Gan, Y., Chen, X., Huang, Q., et~al.: Towards robustness of text-to-sql models
+  against synonym substitution. In: ACL-IJCNLP. pp. 2505--2515 (2021)
+
+\bibitem{ge_famas_2025}
+Ge, Y., Xie, L., Li, Z., Pei, Y., Zhang, T.: Spectrum-based failure attribution
+  for multi-agent systems. In: FSE (2026)
+
+\bibitem{kong_aegis_2025}
+Kong, F., Zhang, R., Yin, H., et~al.: Aegis: Automated error generation and
+  attribution for multi-agent systems. In: ICLR (2026)
+
+\bibitem{lei_spider2_2025}
+Lei, F., Chen, J., Ye, Y., et~al.: Spider 2.0: Evaluating language models on
+  real-world enterprise text-to-sql workflows. In: ICLR (2025),
+  arXiv:2411.07763
+
+\bibitem{li_bird_2023}
+Li, J., Hui, B., Qu, G., et~al.: Can {LLM} already serve as a database
+  interface? a {BIg} bench for large-scale database grounded text-to-{SQLs}.
+  In: NeurIPS (2023), arXiv:2305.03111
+
+\bibitem{pourreza_din-sql_2023}
+Pourreza, M., Rafiei, D.: {DIN-SQL}: Decomposed in-context learning of
+  text-to-sql with self-correction. In: NeurIPS. vol.~36, pp. 36339--36348
+  (2023)
+
+\bibitem{shen_icl_errors_2026}
+Shen, J., Wan, C., Qiao, R., et~al.: Understanding, detecting, and repairing
+  real-world in-context-learning-based text-to-sql errors. In: FSE (2026),
+  arXiv:2501.09310
+
+\bibitem{talaei_chess_2024}
+Talaei, S., Pourreza, M., Chang, Y.C., Mirhoseini, A., Saberi, A.: {CHESS}:
+  Contextual harnessing for efficient {SQL} synthesis. arXiv preprint
+  arXiv:2405.16755  (2024)
+
+\bibitem{wang_mac-sql_2025}
+Wang, B., Ren, C., Yang, J., et~al.: {MAC-SQL}: A multi-agent collaborative
+  framework for text-to-sql. In: COLING. pp. 540--557 (2025)
+
+\bibitem{wong_fault_localization_survey_2016}
+Wong, W.E., Gao, R., Li, Y., Abreu, R., Wotawa, F.: A survey on software fault
+  localization. IEEE Transactions on Software Engineering  \textbf{42}(8),
+  707--740 (2016)
+
+\bibitem{xie_mag-sql_2024}
+Xie, W., Wu, G., Zhou, B.: {MAG-SQL}: Multi-agent generative approach with soft
+  schema linking and iterative sub-{SQL} refinement for text-to-{SQL}. arXiv
+  preprint arXiv:2408.07930  (2024)
+
+\bibitem{yang_mars-sql_2025}
+Yang, H., Zhang, J., He, Z., Zhou, A., Fung, Y.R.: {MARS-SQL}: A multi-agent
+  reinforcement learning framework for text-to-{SQL}. arXiv preprint
+  arXiv:2511.01008  (2025)
+
+\bibitem{yu_spider_2018}
+Yu, T., Zhang, R., Yang, K., et~al.: Spider: A large-scale human-labeled
+  dataset for complex and cross-domain semantic parsing and text-to-sql task.
+  In: EMNLP. pp. 3911--3921 (2018)
+
+\bibitem{zeller_delta_debugging_2002}
+Zeller, A., Hildebrandt, R.: Simplifying and isolating failure-inducing input.
+  IEEE Transactions on Software Engineering  \textbf{28}(2),  183--200 (2002)
+
+\bibitem{zhang_agentracer_2025}
+Zhang, G., Wang, J., Chen, J., Zhou, W., Wang, K., Yan, S.: {AgenTracer}: Who
+  is inducing failure in the {LLM} agentic systems? In: ICLR (2026)
+
+\bibitem{zhang2025which}
+Zhang, S., Yin, M., Zhang, J., et~al.: Which agent causes task failures and
+  when? on automated failure attribution of {LLM} multi-agent systems. In: ICML
+  (2025)
+
+\bibitem{zhu_raffles_2025}
+Zhu, C., Hong, S., Wu, J., et~al.: {RAFFLES}: Reasoning-based attribution of
+  faults for {LLM} systems. In: EACL (2026)
+
+\bibitem{zhu_scot2s_2025}
+Zhu, C., Lin, Y., Cai, Y., Li, Y.: {SCoT2S}: Self-correcting text-to-sql
+  parsing by leveraging {LLMs}. Computer Speech \& Language  \textbf{95},
+  101865 (2025)
+
+\end{thebibliography}

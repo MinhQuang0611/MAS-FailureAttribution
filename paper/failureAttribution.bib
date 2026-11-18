@@ -1,11 +1,12 @@
 % failureAttribution.bib
 % ---------------------------------------------------------------------------
-% NOTE: This file was reconstructed because no .bib was present in the repo.
-% Entries marked [VERIFY] below were rebuilt from the citation keys and the
-% descriptions used in the paper body. Every field marked [VERIFY] MUST be
-% checked against the real publication (DOI / proceedings page) before
-% submission. Do not submit with unverified entries.
+% All entries verified against arXiv API / ACL Anthology / publisher pages
+% on 2026-08-25. No placeholder ([VERIFY]) entries remain.
+% Venue-of-record is used where a preprint was later published; the arXiv
+% eprint is retained in `note` for locatability.
 % ---------------------------------------------------------------------------
+
+% ============================ Benchmarks ==================================
 
 @inproceedings{yu_spider_2018,
   title     = {Spider: A Large-Scale Human-Labeled Dataset for Complex and
@@ -28,22 +29,14 @@
                Purver, Matthew and Woodward, John R. and Xie, Jinxia and
                Huang, Pengsheng},
   booktitle = {Proceedings of the 59th Annual Meeting of the Association for
-               Computational Linguistics (ACL-IJCNLP)},
+               Computational Linguistics and the 11th International Joint
+               Conference on Natural Language Processing (ACL-IJCNLP)},
   pages     = {2505--2515},
   year      = {2021},
   doi       = {10.18653/v1/2021.acl-long.195}
 }
 
-@inproceedings{pourreza_din-sql_2023,
-  title     = {DIN-SQL: Decomposed In-Context Learning of Text-to-SQL with
-               Self-Correction},
-  author    = {Pourreza, Mohammadreza and Rafiei, Davood},
-  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
-  volume    = {36},
-  year      = {2023}
-}
-
-@inproceedings{chang_drspider_2022,
+@inproceedings{chang_drspider_2023,
   title     = {Dr.Spider: A Diagnostic Evaluation Benchmark towards Text-to-SQL
                Robustness},
   author    = {Chang, Shuaichen and Wang, Jun and Dong, Mingwen and
@@ -52,13 +45,165 @@
                Lilien, Joseph and Ash, Steve and Wang, William Yang and
                Wang, Zhiguo and Castelli, Vittorio and Ng, Patrick and
                Xiang, Bing},
-  booktitle = {International Conference on Learning Representations (ICLR)},
+  booktitle = {Proceedings of the 11th International Conference on Learning
+               Representations (ICLR)},
   year      = {2023}
 }
 
+@inproceedings{lei_spider2_2025,
+  title     = {Spider 2.0: Evaluating Language Models on Real-World Enterprise
+               Text-to-SQL Workflows},
+  author    = {Lei, Fangyu and Chen, Jixuan and Ye, Yuxiao and Cao, Ruisheng and
+               Shin, Dongchan and Su, Hongjin and Suo, Zhaoqing and
+               Gao, Hongcheng and Hu, Wenjing and Yin, Pengcheng and
+               Zhong, Victor and Xiong, Caiming and Sun, Ruoxi and Liu, Qian and
+               Wang, Sida and Yu, Tao},
+  booktitle = {Proceedings of the 13th International Conference on Learning
+               Representations (ICLR)},
+  year      = {2025},
+  note      = {Oral presentation. arXiv:2411.07763}
+}
+
+@inproceedings{li_bird_2023,
+  title     = {Can {LLM} Already Serve as A Database Interface? A {BIg} Bench
+               for Large-Scale Database Grounded Text-to-{SQLs}},
+  author    = {Li, Jinyang and Hui, Binyuan and Qu, Ge and Yang, Jiaxi and
+               Li, Binhua and Li, Bowen and Wang, Bailin and Qin, Bowen and
+               Geng, Ruiying and Huo, Nan and Zhou, Xuanhe and Ma, Chenhao and
+               Li, Guoliang and Chang, Kevin C. C. and Huang, Fei and
+               Cheng, Reynold and Li, Yongbin},
+  booktitle = {Advances in Neural Information Processing Systems 36 (NeurIPS),
+               Datasets and Benchmarks Track},
+  year      = {2023},
+  note      = {arXiv:2305.03111}
+}
+
+% ==================== Multi-Agent / Text-to-SQL systems ====================
+
+@inproceedings{pourreza_din-sql_2023,
+  title     = {{DIN-SQL}: Decomposed In-Context Learning of Text-to-SQL with
+               Self-Correction},
+  author    = {Pourreza, Mohammadreza and Rafiei, Davood},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume    = {36},
+  pages     = {36339--36348},
+  year      = {2023}
+}
+
+@inproceedings{wang_mac-sql_2025,
+  title     = {{MAC-SQL}: A Multi-Agent Collaborative Framework for Text-to-SQL},
+  author    = {Wang, Bing and Ren, Changyu and Yang, Jian and Liang, Xinnian and
+               Bai, Jiaqi and Chai, LinZheng and Yan, Zhao and
+               Zhang, Qian-Wen and Yin, Di and Sun, Xing and Li, Zhoujun},
+  booktitle = {Proceedings of the 31st International Conference on
+               Computational Linguistics (COLING)},
+  pages     = {540--557},
+  year      = {2025}
+}
+
+@inproceedings{cen_sqlfixagent_2025,
+  title     = {{SQLFixAgent}: Towards Semantic-Accurate Text-to-SQL Parsing via
+               Consistency-Enhanced Multi-Agent Collaboration},
+  author    = {Cen, Jipeng and Liu, Jiaxin and Li, Zhixu and Wang, Jingjing},
+  booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume    = {39},
+  pages     = {49--57},
+  year      = {2025},
+  doi       = {10.1609/aaai.v39i1.31979}
+}
+
+@inproceedings{chaturvedi_sqlofthought_2025,
+  title     = {{SQL-of-Thought}: Multi-agentic Text-to-SQL with Guided Error
+               Correction},
+  author    = {Chaturvedi, Saumya and Chadha, Aman and Bindschaedler, Laurent},
+  booktitle = {NeurIPS 2025 Workshop on Deep Learning for Code (DL4C)},
+  year      = {2025},
+  note      = {arXiv:2509.00581}
+}
+
+% ==================== Error analysis and self-correction ===================
+
+@inproceedings{shen_icl_errors_2026,
+  title     = {Understanding, Detecting, and Repairing Real-World
+               In-Context-Learning-Based Text-to-SQL Errors},
+  author    = {Shen, Jiawei and Wan, Chengcheng and Qiao, Ruoyi and
+               Zou, Jiazhen and Xu, Hang and Shao, Yuchen and
+               Zhang, Yueling and Miao, Weikai and Pu, Geguang},
+  booktitle = {Proceedings of the ACM International Conference on the
+               Foundations of Software Engineering (FSE)},
+  year      = {2026},
+  note      = {arXiv:2501.09310}
+}
+
+@article{zhu_scot2s_2025,
+  title   = {{SCoT2S}: Self-correcting Text-to-SQL parsing by leveraging
+             {LLMs}},
+  author  = {Zhu, Chunlin and Lin, Yuming and Cai, Yaojun and Li, You},
+  journal = {Computer Speech \& Language},
+  volume  = {95},
+  pages   = {101865},
+  year    = {2025},
+  doi     = {10.1016/j.csl.2025.101865}
+}
+
+@article{lei_emlc_2026,
+  title   = {{EMLC}: An extensible multi-level correction framework for
+             text-to-{SQL}},
+  author  = {Lei, Jianjun and Tan, Yijie and Wang, Ying},
+  journal = {Information Processing \& Management},
+  year    = {2026},
+  doi     = {10.1016/j.ipm.2025.104485}
+}
+
+@inproceedings{wang_dac_2025,
+  title     = {{DAC}: Decomposed Automation Correction for Text-to-SQL},
+  author    = {Wang, Dingzirui and Dou, Longxu and Zhang, Xuanliang and
+               Zhu, Qingfu and Che, Wanxiang},
+  booktitle = {Findings of the Association for Computational Linguistics:
+               EMNLP 2025},
+  year      = {2025},
+  note      = {arXiv:2408.08779}
+}
+
+@inproceedings{chen_error_detection_2023,
+  title     = {Error Detection for Text-to-SQL Semantic Parsing},
+  author    = {Chen, Shijie and Chen, Ziru and Sun, Huan and Su, Yu},
+  booktitle = {Findings of the Association for Computational Linguistics:
+               EMNLP 2023},
+  pages     = {11730--11743},
+  year      = {2023},
+  doi       = {10.18653/v1/2023.findings-emnlp.785}
+}
+
+% ==================== Schema linking, ambiguity, robustness ================
+
+@inproceedings{liu_solid-sql_2025,
+  title     = {{Solid-SQL}: Enhanced Schema-linking based In-context Learning
+               for Robust Text-to-SQL},
+  author    = {Liu, Geling and Tan, Yunzhi and Zhong, Ruichao and
+               Xie, Yuanzhen and Zhao, Lingchen and Wang, Qian and Hu, Bo and
+               Li, Zang},
+  booktitle = {Proceedings of the 31st International Conference on
+               Computational Linguistics (COLING)},
+  year      = {2025},
+  note      = {arXiv:2412.12522}
+}
+
+@inproceedings{safarzadeh_sql2nl_2025,
+  title     = {Evaluating {NL2SQL} via {SQL2NL}},
+  author    = {Safarzadeh, Mohammadtaher and Oroojlooyjadid, Afshin and
+               Roth, Dan},
+  booktitle = {Findings of the Association for Computational Linguistics:
+               EMNLP 2025},
+  year      = {2025},
+  note      = {arXiv:2509.04657}
+}
+
+% ==================== Failure attribution in MAS ==========================
+
 @inproceedings{zhang2025which,
   title     = {Which Agent Causes Task Failures and When? On Automated Failure
-               Attribution of LLM Multi-Agent Systems},
+               Attribution of {LLM} Multi-Agent Systems},
   author    = {Zhang, Shaokun and Yin, Ming and Zhang, Jieyu and Liu, Jiale and
                Han, Zhiguang and Zhang, Jingyang and Li, Beibin and
                Wang, Chi and Wang, Huazheng and Chen, Yiran and Wu, Qingyun},
@@ -67,132 +212,166 @@
   year      = {2025}
 }
 
-% --------------------------- [VERIFY] below ------------------------------
-% The following keys are cited in the manuscript but no verified bibliographic
-% record was available in the repository. Fields are placeholders derived from
-% the key and the in-text description. CONFIRM OR REMOVE before submitting.
-
-@article{shen_study_2025,
-  title   = {A Study of Error Types and Failure Modes in Text-to-SQL Systems},
-  author  = {Shen, [VERIFY]},
-  journal = {[VERIFY]},
-  year    = {2025},
-  note    = {[VERIFY] bibliographic record unconfirmed}
+@inproceedings{cemri_mast_2025,
+  title     = {Why Do Multi-Agent {LLM} Systems Fail?},
+  author    = {Cemri, Mert and Pan, Melissa Z. and Yang, Shuyi and
+               Agrawal, Lakshya A. and Chopra, Bhavya and Tiwari, Rishabh and
+               Keutzer, Kurt and Parameswaran, Aditya and Klein, Dan and
+               Ramchandran, Kannan and Zaharia, Matei and
+               Gonzalez, Joseph E. and Stoica, Ion},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  year      = {2025}
 }
 
-@article{zhu_scot2s_2026,
-  title   = {SCoT2S: Self-Correcting Chain-of-Thought for Text-to-SQL},
-  author  = {Zhu, [VERIFY]},
-  journal = {[VERIFY]},
-  year    = {2026},
-  note    = {[VERIFY] bibliographic record unconfirmed}
+@article{xie_mag-sql_2024,
+  title   = {{MAG-SQL}: Multi-Agent Generative Approach with Soft Schema
+             Linking and Iterative Sub-{SQL} Refinement for Text-to-{SQL}},
+  author  = {Xie, Wenxuan and Wu, Gaochen and Zhou, Bowen},
+  journal = {arXiv preprint arXiv:2408.07930},
+  year    = {2024}
 }
 
-@article{lei_emlc_2026,
-  title   = {EMLC: Multi-Level Correction for Text-to-SQL Generation},
-  author  = {Lei, [VERIFY]},
-  journal = {[VERIFY]},
-  year    = {2026},
-  note    = {[VERIFY] bibliographic record unconfirmed}
+@article{zeller_delta_debugging_2002,
+  title     = {Simplifying and Isolating Failure-Inducing Input},
+  author    = {Zeller, Andreas and Hildebrandt, Ralf},
+  journal   = {IEEE Transactions on Software Engineering},
+  volume    = {28},
+  number    = {2},
+  pages     = {183--200},
+  year      = {2002},
+  doi       = {10.1109/32.988498}
 }
 
-@article{wang_dac_2025,
-  title   = {DAC: Decomposed Automatic Correction for Text-to-SQL},
-  author  = {Wang, [VERIFY]},
-  journal = {[VERIFY]},
-  year    = {2025},
-  note    = {[VERIFY] bibliographic record unconfirmed}
+@article{wong_fault_localization_survey_2016,
+  title   = {A Survey on Software Fault Localization},
+  author  = {Wong, W. Eric and Gao, Ruizhi and Li, Yihao and
+             Abreu, Rui and Wotawa, Franz},
+  journal = {IEEE Transactions on Software Engineering},
+  volume  = {42},
+  number  = {8},
+  pages   = {707--740},
+  year    = {2016},
+  doi     = {10.1109/TSE.2016.2521368}
 }
 
-@article{wang_mac-sql_2025,
-  title   = {MAC-SQL: A Multi-Agent Collaborative Framework for Text-to-SQL},
-  author  = {Wang, [VERIFY]},
-  journal = {[VERIFY]},
-  year    = {2025},
-  note    = {[VERIFY] bibliographic record unconfirmed}
+% ---- added 2026-09-15: recent failure-attribution and multi-agent Text-to-SQL work (all verified on arXiv / ACM DL)
+@inproceedings{ge_famas_2025,
+  author    = {Ge, Yu and Xie, Linna and Li, Zhong and Pei, Yu and Zhang, Tian},
+  title     = {Spectrum-based Failure Attribution for Multi-Agent Systems},
+  booktitle = {Proceedings of the ACM International Conference on the Foundations of Software Engineering (FSE)},
+  year      = {2026}
 }
 
-@article{cen_sqlfixagent_2025,
-  title   = {SQLFixAgent: Towards Semantic-Accurate Text-to-SQL via
-             Multi-Agent Collaboration},
-  author  = {Cen, [VERIFY]},
-  journal = {[VERIFY]},
-  year    = {2025},
-  note    = {[VERIFY] bibliographic record unconfirmed}
+@inproceedings{zhang_agentracer_2025,
+  author    = {Zhang, Guibin and Wang, Junhao and Chen, Junjie and Zhou, Wangchunshu and Wang, Kun and Yan, Shuicheng},
+  title     = {{AgenTracer}: Who Is Inducing Failure in the {LLM} Agentic Systems?},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2026}
 }
 
-@article{chaturvedi2025sqlofthought,
-  title   = {SQL-of-Thought: Multi-Agent Text-to-SQL with Guided Error
-             Correction},
-  author  = {Chaturvedi, [VERIFY]},
-  journal = {[VERIFY]},
-  year    = {2025},
-  note    = {[VERIFY] bibliographic record unconfirmed}
+@inproceedings{kong_aegis_2025,
+  author    = {Kong, Fanqi and Zhang, Ruijie and Yin, Huaxiao and Zhang, Guibin and Zhang, Xiaofei and Chen, Ziang and Zhang, Zhaowei and Zhang, Xiaoyuan and Zhu, Song-Chun and Feng, Xue},
+  title     = {Aegis: Automated Error Generation and Attribution for Multi-Agent Systems},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2026}
 }
 
-@article{lei_spider_2025,
-  title   = {Spider 2.0: Evaluating Language Models on Real-World Enterprise
-             Text-to-SQL Workflows},
-  author  = {Lei, [VERIFY]},
-  journal = {[VERIFY]},
-  year    = {2025},
-  note    = {[VERIFY] bibliographic record unconfirmed}
+@inproceedings{zhu_raffles_2025,
+  author    = {Zhu, Chenyang and Hong, Spencer and Wu, Jingyu and Chawla, Kushal and Tang, Charlotte and Yin, Youbing and Wolfe, Nathan and Babinsky, Erin and Liu, Daben},
+  title     = {{RAFFLES}: Reasoning-based Attribution of Faults for {LLM} Systems},
+  booktitle = {Proceedings of the 19th Conference of the European Chapter of the Association for Computational Linguistics (EACL)},
+  year      = {2026}
 }
 
-@article{huo_bird-interact_2026,
-  title   = {BIRD-Interact: Evaluating Interactive Text-to-SQL},
-  author  = {Huo, [VERIFY]},
-  journal = {[VERIFY]},
-  year    = {2026},
-  note    = {[VERIFY] bibliographic record unconfirmed}
+@article{chen_traceelephant_2026,
+  author  = {Chen, Mengzhuo and Wang, Junjie and Mu, Fangwen and Wang, Yawen and Liu, Zhe and Feng, Huanxiang and Wang, Qing},
+  title   = {Seeing the Whole Elephant: A Benchmark for Failure Attribution in {LLM}-based Multi-Agent Systems},
+  journal = {arXiv preprint arXiv:2604.22708},
+  year    = {2026}
 }
 
-@article{yang_sql--schema_2024,
-  title   = {Schema Linking for Text-to-SQL Generation},
-  author  = {Yang, [VERIFY]},
-  journal = {[VERIFY]},
-  year    = {2024},
-  note    = {[VERIFY] bibliographic record unconfirmed}
+@article{talaei_chess_2024,
+  author  = {Talaei, Shayan and Pourreza, Mohammadreza and Chang, Yu-Chen and Mirhoseini, Azalia and Saberi, Amin},
+  title   = {{CHESS}: Contextual Harnessing for Efficient {SQL} Synthesis},
+  journal = {arXiv preprint arXiv:2405.16755},
+  year    = {2024}
 }
 
-@article{chen_text--sql_2023,
-  title   = {Nested Query Structures in Text-to-SQL},
-  author  = {Chen, [VERIFY]},
-  journal = {[VERIFY]},
-  year    = {2023},
-  note    = {[VERIFY] bibliographic record unconfirmed}
+@article{yang_mars-sql_2025,
+  author  = {Yang, Haolin and Zhang, Jipeng and He, Zhitao and Zhou, Alexander and Fung, Yi R.},
+  title   = {{MARS-SQL}: A Multi-Agent Reinforcement Learning Framework for Text-to-{SQL}},
+  journal = {arXiv preprint arXiv:2511.01008},
+  year    = {2025}
 }
 
-@article{ding_ambisql_2025,
-  title   = {AmbiSQL: Resolving Ambiguity in Natural Language Database
-             Queries},
-  author  = {Ding, [VERIFY]},
-  journal = {[VERIFY]},
-  year    = {2025},
-  note    = {[VERIFY] bibliographic record unconfirmed}
+@inproceedings{liu_nl2sql-bugs_2025,
+  author    = {Liu, Xinyu and Shen, Shuyu and Li, Boyan and Tang, Nan and Luo, Yuyu},
+  title     = {{NL2SQL-BUGs}: A Benchmark for Detecting Semantic Errors in {NL2SQL} Translation},
+  booktitle = {Proceedings of the 31st ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD)},
+  year      = {2025},
+  doi       = {10.1145/3711896.3737427}
 }
 
-@article{liu_solid-sql_2025,
-  title   = {Solid-SQL: Enhancing Robustness of Text-to-SQL Models},
-  author  = {Liu, [VERIFY]},
-  journal = {[VERIFY]},
-  year    = {2025},
-  note    = {[VERIFY] bibliographic record unconfirmed}
+@article{liu_text2sql_survey_2025,
+  author  = {Liu, Xinyu and Shen, Shuyu and Li, Boyan and Ma, Peixian and Jiang, Runzhi and Zhang, Yuxin and Fan, Ju and Li, Guoliang and Tang, Nan and Luo, Yuyu},
+  title   = {A Survey of Text-to-{SQL} in the Era of {LLMs}: Where Are We, and Where Are We Going?},
+  journal = {IEEE Transactions on Knowledge and Data Engineering},
+  year    = {2025}
 }
 
-@article{safarzadeh_evaluating_2025,
-  title   = {SQL2NL: Evaluating Text-to-SQL Models via Query-to-Language
-             Round-Trip},
-  author  = {Safarzadeh, [VERIFY]},
-  journal = {[VERIFY]},
-  year    = {2025},
-  note    = {[VERIFY] bibliographic record unconfirmed}
+@article{gao_dail-sql_2024,
+  author  = {Gao, Dawei and Wang, Haibin and Li, Yaliang and Sun, Xiuyu and Qian, Yichen and Ding, Bolin and Zhou, Jingren},
+  title   = {Text-to-{SQL} Empowered by Large Language Models: A Benchmark Evaluation},
+  journal = {Proceedings of the VLDB Endowment},
+  volume  = {17},
+  number  = {5},
+  pages   = {1132--1145},
+  year    = {2024}
 }
 
+@inproceedings{pourreza_chase-sql_2025,
+  author    = {Pourreza, Mohammadreza and Li, Hailong and Sun, Ruoxi and Chung, Yeounoh and Talaei, Shayan and Kakkar, Gaurav Tarlok and Gan, Yu and Saberi, Amin and Ozcan, Fatma and Arik, Sercan O.},
+  title     = {{CHASE-SQL}: Multi-Path Reasoning and Preference Optimized Candidate Selection in Text-to-{SQL}},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year      = {2025}
+}
+
+% --- re-added for soict2026_logging.tex (from failureAttribution.bib.pre_venue_update) ---
 @article{shen_select-sql_2024,
-  title   = {Select-SQL: Intermediate Reasoning in Text-to-SQL Pipelines},
-  author  = {Shen, [VERIFY]},
-  journal = {[VERIFY]},
-  year    = {2024},
-  note    = {[VERIFY] bibliographic record unconfirmed}
+  title   = {{SelECT-SQL}: Self-correcting ensemble Chain-of-Thought for
+             Text-to-SQL},
+  author  = {Shen, Ke and Kejriwal, Mayank},
+  journal = {arXiv preprint arXiv:2409.10007},
+  year    = {2024}
+}
+@article{yang_sql_to_schema_2024,
+  title   = {{SQL-to-Schema} Enhances Schema Linking in Text-to-SQL},
+  author  = {Yang, Sun and Su, Qiong and Li, Zhishuai and Li, Ziyue and
+             Mao, Hangyu and Liu, Chenxi and Zhao, Rui},
+  journal = {arXiv preprint arXiv:2405.09593},
+  year    = {2024}
+}
+@article{ding_ambisql_2025,
+  title   = {{AmbiSQL}: Interactive Ambiguity Detection and Resolution for
+             Text-to-SQL},
+  author  = {Ding, Zhongjun and Lin, Yin and Zeng, Tianjing and Zhu, Rong and
+             Ding, Bolin and Zhou, Jingren},
+  journal = {Proceedings of the VLDB Endowment},
+  year    = {2025},
+  note    = {Demonstration track. arXiv:2508.15276}
+}
+@inproceedings{huo_bird_interact_2026,
+  title     = {{BIRD-INTERACT}: Re-imagining Text-to-SQL Evaluation for Large
+               Language Models via Lens of Dynamic Interactions},
+  author    = {Huo, Nan and Xu, Xiaohan and Li, Jinyang and Jacobsson, Per and
+               Lin, Shipei and Qin, Bowen and Hui, Binyuan and Li, Xiaolong and
+               Qu, Ge and Si, Shuzheng and Han, Linheng and Alexander, Edward and
+               Zhu, Xintong and Qin, Rui and Yu, Ruihan and Jin, Yiyao and
+               Zhou, Feige and Zhong, Weihao and Chen, Yun and Liu, Hongyu and
+               Ma, Chenhao and Ozcan, Fatma and Papakonstantinou, Yannis and
+               Cheng, Reynold},
+  booktitle = {Proceedings of the 14th International Conference on Learning
+               Representations (ICLR)},
+  year      = {2026},
+  note      = {Oral presentation. arXiv:2510.05318}
 }

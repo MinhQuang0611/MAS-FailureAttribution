@@ -29,18 +29,35 @@ def init_log_path(my_log_path):
     api_trace_json_path = os.path.join(dir_name, 'api_trace.json')
 
 
+def _supports_temperature(model: str) -> bool:
+    """PORTED (2026-08): newer OpenAI models reject temperature != 1.
+
+    gpt-5.x rejects `temperature=0.1` with a 400 rather than clamping it, so
+    the parameter is omitted for those models and the call runs at the only
+    temperature they accept (1.0). This is a REAL behavioural difference from
+    the gpt-4o runs, which are near-deterministic at 0.1, and it is recorded
+    here rather than hidden: sampling variance is higher on gpt-5.x backbones.
+    """
+    m = (model or "").split("/")[-1].lower()   # drop any OpenRouter namespace
+    return not (m.startswith("gpt-5") or m.startswith("o1") or
+                m.startswith("o3") or m.startswith("o4"))
+
+
 def api_func(prompt: str):
     """PORTED (2026-08): openai>=1.0 client call.
 
     Upstream used openai.ChatCompletion.create(engine=...) from the pre-1.0
-    SDK, removed in 1.0. Behaviour (single user message, temperature 0.1,
-    stripped text + token counts) is preserved.
+    SDK, removed in 1.0. Behaviour (single user message, stripped text + token
+    counts) is preserved; temperature is passed only to models that accept it.
     """
     global MODEL_NAME
+    kw = {}
+    if _supports_temperature(MODEL_NAME):
+        kw["temperature"] = 0.1
     response = client.chat.completions.create(
         model=MODEL_NAME,
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.1,
+        **kw,
     )
     text = (response.choices[0].message.content or "").strip()
     prompt_token = response.usage.prompt_tokens

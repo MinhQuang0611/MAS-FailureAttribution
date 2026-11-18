@@ -53,24 +53,74 @@ load_dotenv(EXP / ".env")
 sys.path.insert(0, str(EXP))
 sys.path.insert(0, str(EXP / "baselines" / "MAC-SQL"))
 
-BENCH_DIR = EXP / "data" / "drspider_benchmark"
+BENCH_DIR = EXP / "data" / "drspider_benchmark"   # rebound per --dataset
+
+# ---------------------------------------------------------------------------
+# Datasets. A dataset is a benchmark directory whose manifest lists sets of
+# records in one shape, plus the name the baseline's own code uses for its
+# prompt/schema conventions.
+#
+#   drspider  17 perturbation families; every record carries the stage placed
+#             under stress by construction, so recall is defined
+#   bird      natural instances, no injected faults: `target_error_type` is
+#             null and only the attributed *distribution* is measurable
+# ---------------------------------------------------------------------------
+DATASETS = {
+    "drspider": {"bench": "data/drspider_benchmark", "tag": "drspider",
+                 "upstream_name": "spider"},
+    "bird":     {"bench": "data/bird_benchmark",     "tag": "bird",
+                 "upstream_name": "bird"},
+}
+DATASET_NAME = "spider"   # rebound in main(); the id MAC-SQL/MAG-SQL expect
+
+# Rebound per dataset and per backbone in main(); see the comment there.
 OUT_DIR = EXP / "output_logs" / "macsql_drspider"
-SPIDER_TABLES = EXP / "data/raw/spider_unzipped/spider_data/tables.json"
+
+
+def model_slug(model: str) -> str:
+    """Filesystem-safe directory name for a backbone id.
+
+    Handles provider-prefixed and tagged names alike: `ollama/qwen3:32b`
+    becomes `ollama-qwen3-32b`.
+    """
+    return "".join(c if c.isalnum() or c in "._-" else "-" for c in model)
 DRSPIDER = EXP / "data" / "raw" / "drspider"
+# The upstream Spider zip has vanished from HuggingFace before; Dr.Spider ships
+# the same dev schemas, which are the only ones the benchmark references.
+SPIDER_TABLES = EXP / "data/raw/spider_unzipped/spider_data/tables.json"
+if not SPIDER_TABLES.exists():
+    SPIDER_TABLES = DRSPIDER / "Spider-dev" / "tables.json"
 
 TRACKED = ("pruned", "desc_str", "fk_str", "extracted_schema",
            "chosen_db_schem_dict", "qa_pairs", "final_sql", "pred",
            "fixed", "try_times")
 
 
+class AbsPath(str):
+    """A path string that survives MAC-SQL's and MAG-SQL's `data_path.strip('/')`.
+
+    Both baselines sanitise the database root with `.strip('/').strip('\\')`,
+    which turns an absolute POSIX path into a relative one, and every database
+    then fails to open. They were only ever run with relative paths upstream.
+    Subclassing str keeps every other use (f-strings, os.listdir) identical.
+    """
+
+    def strip(self, chars=None):  # noqa: D102 - deliberate no-op
+        return self
+
+
 # ---------------------------------------------------------------------------
 # tables.json for the namespaced DB_* databases
 # ---------------------------------------------------------------------------
 
-def ensure_tables_json(set_name: str, group: str, suffix: str | None) -> Path:
+def ensure_tables_json(set_name: str, group: str, suffix: str | None,
+                       tables_json: str | None = None) -> Path:
     """DB_* sets ship their own tables json, but our db_ids are namespaced
     (battle_death_0 -> battle_death_0__synonym) to stop the three DB_* sets
     from overwriting each other's databases. Rewrite the db_id accordingly."""
+    if tables_json:
+        # BIRD ships dev_tables.json; Dr.Spider's non-DB sets reuse Spider's.
+        return EXP / tables_json
     if group != "DB":
         return SPIDER_TABLES
 
@@ -119,8 +169,17 @@ def execution_match(db: Path, pred: str, gold: str):
 # Agent instrumentation
 # ---------------------------------------------------------------------------
 
-def instrument(chat_manager, sink: list):
-    """Wrap each agent's talk() so we snapshot what it changed."""
+def instrument(chat_manager, sink_ref: list):
+    """Wrap each agent's talk() ONCE per ChatManager.
+
+    `sink_ref` is a one-element list holding the trace for the instance
+    currently running; the caller swaps `sink_ref[0]` between instances.
+    Re-calling this per instance instead would nest a fresh wrapper on top of
+    every previous one, so by instance N each agent call ran N wrappers and N
+    deepcopies of TRACKED. The on-disk logs stayed correct -- each wrapper
+    writes to its own captured trace -- but the run slowed and the retained
+    traces grew without bound.
+    """
     for agent in chat_manager.chat_group:
         original = agent.talk
         name = agent.name
@@ -138,7 +197,7 @@ def instrument(chat_manager, sink: list):
                 raise
             finally:
                 after = {k: copy.deepcopy(message.get(k)) for k in TRACKED}
-                sink.append({
+                sink_ref[0].append({
                     "agent": _name,
                     "elapsed_s": round(time.time() - t0, 3),
                     "error": err,
@@ -238,13 +297,13 @@ def to_log_entry(item, msg, trace, match, exec_err, elapsed, model):
 # Runner
 # ---------------------------------------------------------------------------
 
-def run_set(s, limit, model, done: set):
+def run_set(s, limit, model, done: set, label=None, selector="default"):
     from core.chat_manager import ChatManager
     from core.const import SYSTEM_NAME
 
     set_name, group = s["set"], s["group"]
     suffix = s.get("namespaced_suffix")
-    tables = ensure_tables_json(set_name, group, suffix)
+    tables = ensure_tables_json(set_name, group, suffix, s.get("tables_json"))
     db_dir = EXP / s["db_dir"]
 
     recs = json.loads((EXP / s["benchmark_file"]).read_text(encoding="utf-8"))
@@ -255,20 +314,31 @@ def run_set(s, limit, model, done: set):
         print("    already complete")
         return 0, 0
 
-    cm = ChatManager(data_path=str(db_dir), tables_json_path=str(tables),
+    cm = ChatManager(data_path=AbsPath(db_dir), tables_json_path=str(tables),
                      log_path=str(OUT_DIR / f"_macsql_{set_name}.log"),
-                     model_name=model, dataset_name="spider", lazy=True)
+                     model_name=model, dataset_name=DATASET_NAME, lazy=True,
+                     without_selector=(selector == "off"))
+    if selector == "force":
+        # Interventional arm for the inert-stage claim: make the Selector act
+        # on every database by overriding its size threshold
+        # (avg columns <= 6 and total <= 30 -> no prune), so the instances on
+        # which it was inert in the default sweep now emit a decision. The
+        # pruning prompt and everything downstream are untouched.
+        cm.chat_group[0]._is_need_prune = lambda db_id, db_schema: True
 
     ok = fail = 0
+    sink_ref: list = [None]
+    instrument(cm, sink_ref)
     for i, item in enumerate(todo, 1):
         trace: list = []
+        sink_ref[0] = trace
         msg = {"idx": i, "db_id": item["db_id"], "query": item["question"],
-               "evidence": "", "extracted_schema": {},
+               # BIRD's domain hint; empty on Spider, which has no such field.
+               "evidence": item.get("evidence", ""), "extracted_schema": {},
                "ground_truth": item["gold_sql"], "difficulty": "unknown",
                "send_to": SYSTEM_NAME}
         t0 = time.time()
         try:
-            instrument(cm, trace)
             cm.start(msg)
             db = db_dir / item["db_id"] / f"{item['db_id']}.sqlite"
             match, exec_err = execution_match(db, msg.get("pred") or "",
@@ -280,7 +350,7 @@ def run_set(s, limit, model, done: set):
             ok += 1
 
         entry = to_log_entry(item, msg, trace, match, exec_err,
-                             time.time() - t0, model)
+                             time.time() - t0, label or model)
         (OUT_DIR / f"{item['id']}.json").write_text(
             json.dumps(entry, ensure_ascii=False, indent=1), encoding="utf-8")
 
@@ -291,31 +361,60 @@ def run_set(s, limit, model, done: set):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--dataset", default="drspider", choices=sorted(DATASETS))
     ap.add_argument("--groups", nargs="*", default=["NLQ", "SQL", "DB"])
     ap.add_argument("--sets", nargs="*", default=None)
     ap.add_argument("--limit", type=int, default=None)
-    ap.add_argument("--model", default=os.getenv("MACSQL_MODEL", "gpt-4o"))
+    ap.add_argument("--model", default=os.getenv("MACSQL_MODEL", "gpt-4o-mini"))
+    # The id to record and to name the log directory with. Differs from --model
+    # when a provider prefix routes the call: --model qwen3:32b is what the API
+    # is asked for, --label ollama/qwen3:32b is what the results are filed under.
+    ap.add_argument("--label", default=None)
+    # Selector arm. `force` overrides MAC-SQL's pruning threshold so the
+    # Selector acts on every instance; `off` runs MAC-SQL's own
+    # without_selector mode. Either files results under a suffixed directory
+    # so the default sweep is never resumed into.
+    ap.add_argument("--selector", default="default",
+                    choices=["default", "force", "off"])
     args = ap.parse_args()
 
+    global OUT_DIR, BENCH_DIR, DATASET_NAME
+    ds = DATASETS[args.dataset]
+    BENCH_DIR = EXP / ds["bench"]
+    DATASET_NAME = ds["upstream_name"]
+
+    label = args.label or args.model
+    # Results are filed per dataset AND per backbone: the resume check keys on
+    # the instance id alone, so anything sharing a directory is treated as
+    # already scored.
+    OUT_DIR = EXP / "output_logs" / f"macsql_{ds['tag']}" / (
+        model_slug(label) + ("" if args.selector == "default"
+                             else f"_selector-{args.selector}"))
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    done = {p.stem for p in OUT_DIR.glob("drspider_*.json")}
+    done = {p.stem for p in OUT_DIR.glob("*.json") if not p.name.startswith("_")}
     if done:
         print(f"resuming — {len(done)} instances already logged\n")
 
     man = json.loads((BENCH_DIR / "manifest.json").read_text(encoding="utf-8"))
     sets = [s for s in man["sets"]
             if (args.sets and s["set"] in args.sets)
-            or (not args.sets and s["group"] in args.groups)]
-    sets.sort(key=lambda s: ({"NLQ": 0, "SQL": 1, "DB": 2}[s["group"]], s["set"]))
+            or (not args.sets and s["group"] in args.groups)
+            # A dataset with no perturbation groups (BIRD) has nothing to
+            # filter on, so --groups must not silently exclude everything.
+            or (not args.sets and s["group"] not in ("NLQ", "SQL", "DB"))]
+    sets.sort(key=lambda s: ({"NLQ": 0, "SQL": 1, "DB": 2}.get(s["group"], 9),
+                             s["set"]))
 
-    print(f"MAC-SQL over {len(sets)} Dr.Spider sets | model={args.model}\n")
+    print(f"MAC-SQL over {len(sets)} {args.dataset} sets | model={args.model}\n")
     t0 = time.time()
     tot_ok = tot_fail = 0
     for i, s in enumerate(sets, 1):
-        print(f"[{i}/{len(sets)}] {s['set']} ({s['group']} -> {s['target_stage']})",
+        print(f"[{i}/{len(sets)}] {s['set']} "
+              f"({s['group']} -> {s.get('target_stage') or 'no stage ground truth'})",
               flush=True)
         try:
-            ok, fail = run_set(s, args.limit, args.model, done)
+            ok, fail = run_set(s, args.limit, args.model, done, label,
+                               args.selector)
         except Exception as e:
             print(f"    !! set failed: {type(e).__name__}: {e}", flush=True)
             continue

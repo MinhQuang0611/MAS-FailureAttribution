@@ -27,6 +27,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BENCH = ROOT / "data" / "drspider_benchmark"
 DEST = ROOT / "data" / "databases"
+RAW = ROOT / "data" / "raw" / "drspider"
 
 SUFFIX = {
     "DB_DBcontent_equivalence": "dbcontent",
@@ -45,13 +46,21 @@ def main() -> None:
             continue
         set_name = s["set"]
         suffix = SUFFIX[set_name]
-        src_root = ROOT / s["db_dir"]
+        # Read from the extracted corpus, not from manifest["db_dir"]: a
+        # previous run rewrites that field to the staging destination, so
+        # trusting it makes the second run look for the sources under DEST.
+        src_root = RAW / set_name / "database_post_perturbation"
+        if not src_root.is_dir():
+            src_root = ROOT / s["db_dir"]
         bench_file = ROOT / s["benchmark_file"]
         recs = json.loads(bench_file.read_text(encoding="utf-8"))
 
         copied = skipped = 0
         for r in recs:
             orig = r.get("orig_db_id") or r["db_id"]
+            # Re-runs see db_ids this script already namespaced.
+            if orig.endswith(f"__{suffix}"):
+                orig = orig[: -len(suffix) - 2]
             new_id = f"{orig}__{suffix}"
 
             src = src_root / orig / f"{orig}.sqlite"

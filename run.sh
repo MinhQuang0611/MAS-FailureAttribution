@@ -16,11 +16,25 @@
 
 # --------------------------- CONFIG ----------------------------------------
 
-# Which pipelines to run. Comma-separated: macsql, magsql, nlsql
-#   macsql  3 agents, schema artifact is real  (recommended first run)
-#   magsql  4 agents, finest-grained artifacts (expensive preprocessing)
-#   nlsql   the control - needs its Docker stack up on :8388
-SYSTEMS="${SYSTEMS:-macsql}"
+# Which pipelines to run. Comma-separated: macsql, magsql, dinsql
+#   macsql  MAC-SQL   3 agents, schema artifact is real
+#   magsql  MAG-SQL   4 agents, finest-grained artifacts (expensive preprocessing)
+#   dinsql  DIN-SQL   4 modules, and the only one whose gate is explicit: its
+#           classifier routes each question EASY / NON-NESTED / NESTED, and the
+#           decomposition artifact exists only on NESTED. Dr.Spider only (its
+#           BIRD variant is a separate upstream script). 4 LLM calls/instance.
+# All three are published systems run at their pinned upstream commits. CHESS is
+# a fourth in setup_server.sh but is BIRD-only, so it cannot be scored on
+# Dr.Spider. The nlsql control is not part of this comparison.
+SYSTEMS="${SYSTEMS:-macsql,magsql}"
+
+# Which datasets. Space-separated: drspider bird
+#   drspider  17 perturbation families, stage ground truth by construction —
+#             the only dataset stage RECALL can be measured on
+#   bird      1,534 natural instances (sampled), no injected faults: gives the
+#             attributed DISTRIBUTION on a second corpus, and activates the x2
+#             external-knowledge slot through BIRD's `evidence` field
+DATASETS="${DATASETS:-drspider}"
 
 # Which Dr.Spider perturbation groups. Space-separated: NLQ SQL DB
 #   NLQ -> Intent ground truth  (900)   <- the stage with 0% recall today
@@ -31,9 +45,17 @@ PERT_GROUPS="${PERT_GROUPS:-NLQ SQL DB}"
 # Cap instances per perturbation set. Empty = all 100. Set to 2-5 to smoke test.
 LIMIT="${LIMIT:-}"
 
-# LLM backbone. Must be the SAME for every system, or the comparison measures
-# the model rather than the pipeline architecture.
-MODEL="${MODEL:-gpt-4o}"
+# LLM backbones. Space-separated; every system is run against each in turn, so
+# the result is a system x backbone grid. Within one backbone the model is the
+# same for every system — otherwise the comparison would measure the LLM rather
+# than the pipeline architecture. Across backbones is the second axis: whether
+# the attribution bias survives a change of model.
+#
+#   gpt-4o-mini                 OpenAI, the backbone of the original study
+#   ollama/qwen3:32b       a local ollama server (open weights, no API cost)
+#
+# Costs multiply by the number of backbones. Start with one.
+MODELS="${MODELS:-${MODEL:-gpt-4o-mini}}"
 
 # Python interpreter on this machine.
 PYTHON="${PYTHON:-python3}"
@@ -92,19 +114,10 @@ else
 fi
 
 echo "  systems: $SYSTEMS"
+echo "  data   : $DATASETS"
 echo "  groups : $PERT_GROUPS"
-echo "  model  : $MODEL"
+echo "  models : $MODELS"
 [ -n "$LIMIT" ] && warn "  limit  : $LIMIT per set (SMOKE TEST — not a full run)"
-
-# nlsql cannot run without its stack; say so now, not in three hours.
-case ",$SYSTEMS," in *,nlsql,*)
-  if ! curl -s -m 5 -o /dev/null http://localhost:8388/docs 2>/dev/null; then
-    warn "  nlsql  : API not reachable on :8388 — it will be skipped."
-    warn "           start it with:  cd nlsql && docker compose up -d"
-  else
-    echo "  nlsql  : API reachable"
-  fi
-;; esac
 
 # --------------------------- setup -----------------------------------------
 if [ "$SKIP_SETUP" = "1" ]; then
@@ -120,11 +133,15 @@ fi
 if [ "$ANALYSIS_ONLY" = "1" ]; then
   banner "Run skipped (ANALYSIS_ONLY=1)"
 else
-  banner "Experiments — $SYSTEMS"
   START=$(date +%s)
-  PYTHON="$PYTHON" SYSTEMS="$SYSTEMS" PERT_GROUPS="$PERT_GROUPS" \
-  MODEL="$MODEL" LIMIT="$LIMIT" \
-    bash experiments/run_experiments.sh 2>&1 | tee -a "$MAIN_LOG"
+  LAST=""; for m in $MODELS; do LAST="$m"; done
+  for m in $MODELS; do
+    banner "Experiments — $SYSTEMS on $m"
+    SKIP=1; [ "$m" = "$LAST" ] && SKIP=0
+    PYTHON="$PYTHON" SYSTEMS="$SYSTEMS" PERT_GROUPS="$PERT_GROUPS" \
+    DATASETS="$DATASETS" MODEL="$m" LIMIT="$LIMIT" SKIP_ANALYSIS="$SKIP" \
+      bash experiments/run_experiments.sh 2>&1 | tee -a "$MAIN_LOG"
+  done
   echo
   echo "  wall clock: $(( ($(date +%s) - START) / 60 )) min"
 fi
@@ -132,14 +149,15 @@ fi
 # --------------------------- summary ---------------------------------------
 banner "Summary"
 
-for d in "nlsql:output_logs/drspider" \
-         "MAC-SQL:output_logs/macsql_drspider" \
-         "MAG-SQL:output_logs/magsql_drspider"; do
-  name="${d%%:*}"; path="${d#*:}"
-  if [ -d "$path" ]; then
-    n=$(find "$path" -name '*.json' ! -name '_*' ! -name 'resume_checkpoint.json' 2>/dev/null | wc -l)
-    printf '  %-8s %5s instances logged\n' "$name" "$n"
-  fi
+# One row per system x backbone, matching the layout the logs are written in.
+for path in output_logs/macsql_* output_logs/magsql_* output_logs/dinsql_*; do
+  [ -d "$path" ] || continue
+  name="$(basename "$path")"
+  for md in "$path"/*/; do
+    [ -d "$md" ] || continue
+    n=$(find "$md" -name '*.json' ! -name '_*' ! -name 'resume_checkpoint.json' 2>/dev/null | wc -l)
+    printf '  %-18s %-22s %5s instances logged\n' "$name" "$(basename "$md")" "$n"
+  done
 done
 
 echo

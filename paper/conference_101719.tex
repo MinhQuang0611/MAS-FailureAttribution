@@ -38,7 +38,31 @@ daitq@ptit.edu.vn}
 \maketitle
 
 \begin{abstract}
-Recent advances in Large Language Models have improved Text-to-SQL performance and established Multi-Agent Systems (MAS) as a practical approach for strong end-to-end accuracy, yet current MAS pipelines behave as black boxes offering little visibility into failure origins. This work contributes a \emph{diagnostic framework}, a \emph{perturbation benchmark}, and---critically---a \emph{validation protocol for attribution heuristics themselves}. Central to the framework is a Logging Matrix recording 13 intermediate state variables across four pipeline stages (Intent, Schema, Skeleton, Execution), enabling automated failure localisation via backward state-differencing. Applied to $7{,}000$ Spider executions, the framework attributes $27.20\%$ of outcomes to structural skeleton defects while execution/syntax errors fall to $0.29\%$ after self-correction, a distribution that appears to show execution-centric repair is badly misdirected. We then subject the attribution heuristic to a test that prior work omits: evaluation against $398$ perturbation instances whose faulty stage is fixed by construction. The result is negative and unambiguous. Stage-level recall is $0\%$ for both injected intent faults and injected schema faults; instead, $60.5\%$ of all injected faults are absorbed into the \texttt{Skeleton} label and $38.8\%$ into \texttt{Execution}, in proportions essentially independent of where the fault was actually introduced. Backward state-differencing therefore exhibits a systematic \emph{downstream bias}: upstream semantic faults are masked by the structural mismatches they induce. Any stage distribution obtained this way must be reported as \emph{framework-attributed} rather than as an empirical property of the pipeline---a distinction the failure-attribution literature currently elides. We release the Logging Matrix, the perturbation benchmark, and the bias-measurement protocol so that attribution heuristics can be validated before their distributions are trusted.
+Multi-Agent Systems (MAS) achieve strong end-to-end Text-to-SQL accuracy but
+behave as black boxes, offering little visibility into which stage failed. This
+work contributes a diagnostic framework, a perturbation benchmark, and---the
+part we regard as consequential---a \emph{validation protocol applied to the
+attribution heuristic itself}. The framework centres on a Logging Matrix
+recording 13 intermediate state variables across four stages (Intent, Schema,
+Skeleton, Execution) and localises failures by backward state-differencing.
+Applied to $7{,}000$ Spider executions ($6{,}782$ completed), it attributes
+$27.20\%$ of outcomes to skeleton defects while execution/syntax errors fall to
+$0.29\%$ after self-correction. We then score the heuristic against $398$
+perturbation instances whose stressed stage is fixed by construction, and the
+result is negative: stage-level recall is $0\%$ for injected intent faults
+($0/98$, $95\%$ CI $[0,3.8\%]$) and for injected schema faults ($0/54$, CI
+$[0,6.6\%]$). Among the $152$ perturbations that induced a failure, $60.5\%$
+were labelled \texttt{Skeleton} and $38.8\%$ \texttt{Execution}, and we cannot
+detect a difference between the two injection conditions ($\chi^2=0.001$,
+$p=0.97$; the data do not exclude a true difference up to ${\sim}15$ points).
+We therefore report the stage distribution as \emph{framework-attributed}
+rather than as a pipeline property, and withdraw the claim that skeleton
+reasoning is the dominant failure source. We deliberately do not generalise the
+zero-recall result to backward state-differencing as a class: it is a property
+of this heuristic on this pipeline, and our own follow-up on a published MAS
+reaches non-zero recall. The transferable contribution is the measurement
+protocol---inject at known stages, score recall, publish the confusion matrix
+alongside any distribution.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -48,16 +72,29 @@ Diagnostic Benchmark, Negative Results, Large Language Models.
 
 \section{Introduction}
 \subsection{Context}
-Recent advances in LLMs have improved Text-to-SQL performance, with Multi-Agent Systems (MAS) decomposing the task into specialised agents---intent understanding, schema linking, skeleton generation, and execution---achieving strong results on benchmarks such as Spider and BIRD~\cite{yu_spider_2018}. However, high benchmark accuracy masks a critical limitation: MAS pipelines behave as black boxes, providing little visibility into \emph{who} (which agent) erred and \emph{when} (which stage) the error emerged~\cite{huo_bird-interact_2026, zhu_scot2s_2026}. This opacity impairs system design in several ways. Self-correction strategies remain largely blind, relying on execution-driven feedback that consumes excessive tokens while producing superficial fixes~\cite{zhu_scot2s_2026}. 
+Recent advances in LLMs have improved Text-to-SQL performance, with Multi-Agent Systems (MAS) decomposing the task into specialised agents---intent understanding, schema linking, skeleton generation, and execution---achieving strong results on benchmarks such as Spider and BIRD~\cite{yu_spider_2018}. However, high benchmark accuracy masks a critical limitation: MAS pipelines behave as black boxes, providing little visibility into \emph{who} (which agent) erred and \emph{when} (which stage) the error emerged~\cite{huo_bird_interact_2026, zhu_scot2s_2025}. This opacity impairs system design in several ways. Self-correction strategies remain largely blind, relying on execution-driven
+feedback that consumes excessive tokens while producing superficial
+fixes~\cite{zhu_scot2s_2025}. Stage-aware repair would be the obvious remedy,
+but it presupposes something the literature has not established: that the stage
+labels used to route repair are themselves accurate. This paper asks two
+questions. \textbf{RQ1}: what stage distribution does a state-differencing
+heuristic report over a large MAS Text-to-SQL corpus? \textbf{RQ2}: when the
+faulty stage is known by construction, how often does that heuristic recover
+it? The second question is the one prior work leaves unasked, and answering it
+changes how the first should be read.
+
 
 \subsection{Related works}
 \label{sec:related}
 Text-to-SQL research has evolved along several interconnected directions, from multi-agent task decomposition and error correction to failure attribution and diagnostic benchmarking; each contributing to, yet stopping short of, a unified framework for stage-level root-cause analysis.
 \subsubsection{Multi-Agent Systems in Text-to-SQL}
-Text-to-SQL has shifted from single-pass LLM generation to Multi-Agent Systems (MAS). DIN-SQL demonstrated that decomposing the task into schema linking, query classification, and self-correction yields roughly 10\% gains over monolithic prompting~\cite{pourreza_din-sql_2023}. Subsequent works further specialise agents for intent understanding, query planning, and SQL generation~\cite{chaturvedi2025sqlofthought, wang_mac-sql_2025, cen_sqlfixagent_2025}. Despite high execution accuracy on standard benchmarks, these systems remain end-to-end black boxes: intermediate states are not systematically logged, leaving it unclear which agent introduced an error~\cite{lei_spider_2025}.
+Text-to-SQL has shifted from single-pass LLM generation to Multi-Agent Systems (MAS). DIN-SQL demonstrated that decomposing the task into schema linking, query classification, and self-correction yields roughly 10\% gains over monolithic prompting~\cite{pourreza_din-sql_2023}. Subsequent works further specialise agents for intent understanding, query planning, and SQL generation~\cite{chaturvedi_sqlofthought_2025, wang_mac-sql_2025, cen_sqlfixagent_2025}. Despite high execution accuracy on standard benchmarks, these systems remain end-to-end black boxes: intermediate states are not systematically logged, leaving it unclear which agent introduced an error~\cite{lei_spider2_2025}.
 
 \subsubsection{Error Analysis and Self-Correction}
-Schema-linking mistakes and join-operation mismatches account for over 70\% of pipeline failures~\cite{shen_study_2025}, motivating various self-correction approaches. SCoT2S iteratively fixes errors at the SQL level~\cite{zhu_scot2s_2026}, EMLC applies multi-level correction across schema, skeleton, and executability layers~\cite{lei_emlc_2026}, and DAC decomposes correction into entity and skeleton sub-tasks~\cite{wang_dac_2025}. Despite these advances, most pipelines remain blind to root causes within the MAS architecture, patching final SQL without tracing which agent produced the original defect~\cite{shen_study_2025}.
+Schema-linking mistakes and join-operation mismatches are reported to account
+for over 70\% of parsing errors~\cite{zhu_scot2s_2025}, and Shen et al. catalogue
+27 error types across 7 categories in in-context-learning
+pipelines~\cite{shen_icl_errors_2026}; both motivate self-correction approaches. SCoT2S iteratively fixes errors at the SQL level~\cite{zhu_scot2s_2025}, EMLC applies multi-level correction across schema, skeleton, and executability layers~\cite{lei_emlc_2026}, and DAC decomposes correction into entity and skeleton sub-tasks~\cite{wang_dac_2025}. Despite these advances, most pipelines remain blind to root causes within the MAS architecture, patching final SQL without tracing which agent produced the original defect~\cite{shen_icl_errors_2026}.
 
 \subsubsection{Automated Failure Attribution in LLM Multi-Agent Systems}
 In~\cite{zhang2025which}, authors introduced the Who\&When dataset and showed that even the best attribution method achieves only 53.5\% accuracy in identifying responsible agents and 14.2\% in pinpointing failure steps. Our work differs in three respects: (1)~\emph{domain specificity}, targeting well-defined Text-to-SQL failure modes; (2)~\emph{structured intermediate logging} via a 13-variable Logging Matrix tailored to SQL generation semantics; and (3)~\emph{a perturbation benchmark with construction-time ground truth}, which lets the attribution heuristic be scored rather than assumed.
@@ -70,16 +107,32 @@ downstream stages. An attribution method can therefore be substantially worse
 than its headline accuracy suggests, because its errors concentrate in a way
 that manufactures an apparent bottleneck. We are not aware of prior work in
 the Text-to-SQL setting that measures this directly, and we suggest the
-omission is systemic: attribution heuristics are typically validated against
-labels produced by inspecting the same intermediate signals the heuristic
-consumes, which cannot expose a shared bias.
+omission is common rather than universal: attribution heuristics are frequently
+validated against labels produced by inspecting the same intermediate signals
+the heuristic consumes, which cannot expose a shared bias.
+
+Two adjacent literatures bear directly on this. Cemri et
+al.~\cite{cemri_mast_2025} build MAST, a 14-mode taxonomy of multi-agent
+failures grounded in 1{,}600 annotated traces with high inter-annotator
+agreement ($\kappa = 0.88$); their reliance on human annotation is precisely the
+independent ground truth that heuristic attribution lacks, and our perturbation
+benchmark is a cheaper substitute for it rather than an improvement on it.
+Separately, recovering a cause from a downstream symptom is the classical
+\emph{fault localisation} problem in software engineering, where
+spectrum-based methods exhibit an analogous bias and are corrected not by
+better single-pass scoring but by repeated intervention---delta debugging and
+statistical debugging. That literature anticipates both our negative result and
+the counterfactual remedy we propose in Section~\ref{sec:conclusion}, and we
+claim novelty only for measuring the effect in the MAS Text-to-SQL setting.
 
 \subsubsection{Diagnostic Benchmarks and Robustness}
-Standard benchmarks such as Spider~\cite{yu_spider_2018} emphasise Execution Accuracy and Exact Match, providing no signal about pipeline failure origins. Robustness-oriented works---including Dr.~Spider's 17 perturbation types~\cite{chang_drspider_2022}, Solid-SQL~\cite{liu_solid-sql_2025}, and SQL2NL~\cite{safarzadeh_evaluating_2025}---expose model brittleness but do not trace failures to specific pipeline stages. Our work extends these efforts by combining targeted perturbations with the Logging Matrix, enabling the first Text-to-SQL benchmark with explicit stage-level and agent-level root-cause annotations.
+Standard benchmarks such as Spider~\cite{yu_spider_2018} emphasise Execution Accuracy and Exact Match, providing no signal about pipeline failure origins. Robustness-oriented works---including Dr.~Spider's 17 perturbation types~\cite{chang_drspider_2023}, Solid-SQL~\cite{liu_solid-sql_2025}, and SQL2NL~\cite{safarzadeh_sql2nl_2025}---expose model brittleness but do not trace failures to specific pipeline stages. Our work extends these efforts by combining targeted perturbations with the Logging Matrix, enabling, to our knowledge, the first Text-to-SQL benchmark whose stage-level
+root-cause annotation is fixed at construction time rather than assigned post
+hoc.
 
-Without intermediate state logs, agent-level reasoning hallucinations cannot be systematically quantified~\cite{shen_select-sql_2024}. Finally, evaluation protocols focused solely on execution accuracy fail to provide the diagnostic signal needed for robust, trustworthy systems~\cite{huo_bird-interact_2026}.
+Without intermediate state logs, agent-level reasoning hallucinations cannot be systematically quantified~\cite{shen_select-sql_2024}. Finally, evaluation protocols focused solely on execution accuracy fail to provide the diagnostic signal needed for robust, trustworthy systems~\cite{huo_bird_interact_2026}.
 \subsection{Objectives and contributions}
-To address this gap, we introduce three complementary contributions. \textbf{First}, a \emph{Logging Matrix} that records 13 intermediate artifacts per agent, including parsed intent, filtered schema candidates, SQL skeleton with token-level provenance, and execution traces, enabling systematic comparison across pipeline states to localise discrepancies and hypothesise root causes. \textbf{Second}, a \emph{perturbation benchmark} of 400 instances constructed so that the faulty stage is known by design---schema-proxy substitutions targeting the schema-linking stage, and synonym paraphrases targeting intent understanding---providing ground truth against which an attribution heuristic can be scored. \textbf{Third}, and most consequential, a \emph{bias-measurement protocol} that turns this benchmark on the heuristic itself. Applying it to our own backward state-differencing procedure yields a negative result we report in full: stage-level recall is $0\%$ on both perturbation families, and injected faults are absorbed downstream in proportions nearly independent of their true origin. We argue this measurement should precede any published stage distribution, and that distributions reported without it---including the one in this paper's Table~\ref{tab:failures}---are properly described as \emph{framework-attributed} rather than as pipeline properties.
+To address this gap, we introduce three complementary contributions. \textbf{First}, a \emph{Logging Matrix} that records 13 intermediate artifacts per agent, including parsed intent, filtered schema candidates, SQL skeleton with token-level provenance, and execution traces, enabling systematic comparison across pipeline states to localise discrepancies and hypothesise root causes. \textbf{Second}, a \emph{perturbation benchmark} of 400 instances constructed so that the faulty stage is known by design---schema-proxy substitutions targeting the schema-linking stage, and synonym paraphrases targeting intent understanding---providing ground truth against which an attribution heuristic can be scored. \textbf{Third}, and most consequential, a \emph{bias-measurement protocol} that turns this benchmark on the heuristic itself. Applying it to our own backward state-differencing procedure yields a negative result we report in full: stage-level recall is $0\%$ on both perturbation families, and we cannot distinguish the label distributions produced by the two injection conditions. We are careful about the scope of this finding: it characterises \emph{this} heuristic on \emph{this} pipeline, not state-differencing as a class (Section~\ref{sec:limitations}). We argue this measurement should precede any published stage distribution, and that distributions reported without it---including the one in this paper's Table~\ref{tab:failures}---are properly described as \emph{framework-attributed} rather than as pipeline properties. All three artifacts---the Logging Matrix implementation, the perturbation benchmark, and the measurement protocol---are released at \url{ANONYMISED-FOR-REVIEW}.
 
 Throughout, we use \emph{Execution Accuracy} (EX)---whether the predicted query's result set matches that of the gold query---and \emph{Exact Match} (EM)---whether the predicted query matches the gold query structurally---following the definitions of Yu et al.~\cite{yu_spider_2018}.
 
@@ -91,7 +144,11 @@ The remainder of this paper is organized as follows. Section~\ref{sec:methodolog
 \label{sec:methodology}
 
 \subsection{Pipeline Breakdown}
-Figure~\ref{fig:running_example} presents the proposed modular Text-to-SQL pipeline, per-stage error taxonomy, and Logging Matrix for automatic root-cause attribution. Following common practice~\cite{shen_study_2025}, the pipeline decomposes into four stages: intent understanding, schema selection, skeleton construction, and execution; each handled by a dedicated agent to reduce cognitive load and facilitate failure isolation.
+Figure~\ref{fig:running_example} traces a single perturbed instance through the
+pipeline and shows how a fault injected upstream comes to be reported
+downstream; the pipeline itself, its error taxonomy, and the Logging Matrix are
+specified in the text and in Table~\ref{tab:logging}. Following common
+practice~\cite{shen_icl_errors_2026}, the pipeline decomposes into four stages: intent understanding, schema selection, skeleton construction, and execution; each handled by a dedicated agent to reduce cognitive load and facilitate failure isolation.
 
 \begin{figure}[htbp]
     \centering
@@ -115,14 +172,14 @@ underlying semantic intent. The agent parses the input to identify entities,
 filter conditions, required aggregations (e.g., count, sum, max/min), and
 temporal or spatial constraints. The output is an abstract, semantic
 representation of the user's information need rather than a concrete SQL
-statement~\cite{shen_study_2025}.
+statement~\cite{shen_icl_errors_2026}.
 
 \subsubsection{Step 2: Schema (Schema Filtering)}
 The schema stage narrows the search space over the database. Given the
 intent from Step 1, the agent maps linguistic cues to schema elements and
 selects only those tables and columns necessary to answer the question. The
 output is a reduced, filtered schema that removes noisy elements and keeps
-only the relevant structure~\cite{yang_sql--schema_2024}.
+only the relevant structure~\cite{yang_sql_to_schema_2024}.
 
 \subsubsection{Step 3: Skeleton (SQL Skeleton Construction)}
 The third stage builds the logical structure of the SQL query. Using the
@@ -142,7 +199,7 @@ result set or an error message from the DB engine~\cite{yu_spider_2018}.
 When a Text-to-SQL pipeline returns an incorrect result, the root cause
 usually lies in one of the four steps above. Our error taxonomy categorises
 mistakes according to the stage where the fault first appears, enabling
-attribution at the agent level~\cite{shen_study_2025}.
+attribution at the agent level~\cite{shen_icl_errors_2026}.
 
 \subsubsection{Errors at Step 1: Intent (Misunderstanding)}
 \begin{itemize}
@@ -150,14 +207,14 @@ attribution at the agent level~\cite{shen_study_2025}.
   present in the natural-language question (e.g., ignoring the temporal
   constraint ``2023'').
   \item \textbf{Misinterpretation:} The model misreads the mathematical or
-  logical operator (e.g., computing a sum when an average is requested)~\cite{shen_study_2025}.
+  logical operator (e.g., computing a sum when an average is requested)~\cite{shen_icl_errors_2026}.
 \end{itemize}
 
 \subsubsection{Errors at Step 2: Schema (Schema Selection Errors)}
 \begin{itemize}
   \item \textbf{Missing Schema:} The model fails to include a table or column
   essential for the query, leading to missing data or invalid join
-  paths~\cite{chang_drspider_2022}.
+  paths~\cite{chang_drspider_2023}.
   \item \textbf{Redundant Schema (Hallucination):} The model selects extra
   tables or references columns that do not exist, often inducing unintended
   Cartesian products~\cite{lei_emlc_2026}.
@@ -168,10 +225,10 @@ attribution at the agent level~\cite{shen_study_2025}.
   \item \textbf{Wrong JOIN Logic:} Incorrect join path, join type, or
   \texttt{ON} condition.
   \item \textbf{Wrong Aggregation / Grouping:} Wrong aggregation function or
-  incorrect \texttt{GROUP BY} column~\cite{shen_study_2025}.
+  incorrect \texttt{GROUP BY} column~\cite{shen_icl_errors_2026}.
   \item \textbf{Nesting / Subquery Errors:} Misstructured subqueries or set
   operations (e.g., \texttt{INTERSECT},
-  \texttt{EXCEPT})~\cite{chen_text--sql_2023}.
+  \texttt{EXCEPT})~\cite{chen_error_detection_2023}.
 \end{itemize}
 
 \subsubsection{Errors at Step 4: Execution (Execution / Syntax Errors)}
@@ -181,7 +238,7 @@ attribution at the agent level~\cite{shen_study_2025}.
   \item \textbf{Type Mismatch:} Values of incompatible types are compared.
   \item \textbf{Wrong / Empty Result:} Syntactically valid SQL that returns
   an incorrect or empty result due to silent semantic errors introduced in
-  earlier stages~\cite{shen_study_2025}.
+  earlier stages~\cite{shen_icl_errors_2026}.
 \end{itemize}
 
 \subsection{The Logging Matrix Design}
@@ -260,13 +317,23 @@ procedure.
 
 \noindent\textbf{Threshold justification.}
 
-The ambiguity range $[0.30, 0.55]$ for schema alignment confidence ($x_6$) was determined empirically on 50 development-set queries: scores below $0.30$ indicate clear misalignment, above $0.55$ indicate confident alignment, and the intermediate band flags uncertain alignment between plausible column candidates. The full detection logic spans four steps:
+Algorithm~\ref{alg:backdiff} is the procedure that produced every label
+reported in this paper. The Logging Matrix supports a broader set of detectors,
+listed below for completeness; those marked \emph{(logged, not scored)} write
+diagnostic fields into $x_{12}$ but do not participate in the label decision,
+and no result in this paper depends on them. The ambiguity range $[0.30, 0.55]$
+for schema alignment confidence ($x_6$) was calibrated on 50 held-out
+development queries disjoint from both the distribution set and the
+perturbation set; scores below $0.30$ indicate clear misalignment and above
+$0.55$ confident alignment. This band is \emph{(logged, not scored)}: it
+annotates $x_6$ but does not gate any branch of
+Algorithm~\ref{alg:backdiff}. The detection logic spans four steps:
 
 \begin{itemize}
   \item \textbf{Step A: Intent Understanding} $(x_1, x_2, x_3)$. Low keyword-coverage flags missing conditions; constraints in $x_3$ absent from $x_1$ or $x_2$ flag hallucinated assumptions~\cite{ding_ambisql_2025}.
-  \item \textbf{Step B: Schema Linking} $(x_4, x_5, x_6)$. Missing required tables or columns flag \texttt{SCHEMA\_MISSING}; mappings to non-existent elements flag \texttt{SCHEMA\_HALLUCINATION}; confidence in $[0.30, 0.55]$ flags uncertain alignment~\cite{yang_sql--schema_2024, zhu_scot2s_2026}.
-  \item \textbf{Step C: SQL Generation} $(x_7, x_8, x_9)$. Missing \texttt{JOIN} or \texttt{GROUP BY} operations flag a \emph{plan--execution mismatch}; absent expected clauses flag \emph{skeleton missing clauses}; inconsistent candidates in $x_9$ are quantified as a self-consistency score~\cite{zhu_scot2s_2026, lei_emlc_2026}.
-  \item \textbf{Step D: Execution and Verification} $(x_{10}, x_{11}, x_{12}, x_{13})$. Engine errors in $x_{10}$ propagate to $x_{12}$; silent semantic errors are assigned root-cause labels by combining $x_{11}$ with $x_{12}$; $x_{13}$ is compared with $x_9$ to detect repair regression.
+  \item \textbf{Step B: Schema Linking} $(x_4, x_5, x_6)$. Missing required tables or columns flag \texttt{SCHEMA\_MISSING}; mappings to non-existent elements flag \texttt{SCHEMA\_HALLUCINATION}; confidence in $[0.30, 0.55]$ flags uncertain alignment~\cite{yang_sql_to_schema_2024, zhu_scot2s_2025}.
+  \item \textbf{Step C: SQL Generation} $(x_7, x_8, x_9)$. Missing \texttt{JOIN} or \texttt{GROUP BY} operations flag a \emph{plan--execution mismatch}; absent expected clauses flag \emph{skeleton missing clauses}; inconsistent candidates in $x_9$ are quantified as a self-consistency score \emph{(logged, not scored)}~\cite{zhu_scot2s_2025, lei_emlc_2026}.
+  \item \textbf{Step D: Execution and Verification} $(x_{10}, x_{11}, x_{12}, x_{13})$. Engine errors in $x_{10}$ propagate to $x_{12}$; silent semantic errors are assigned root-cause labels by combining $x_{11}$ with $x_{12}$; $x_{13}$ is compared with $x_9$ to detect repair regression \emph{(logged, not scored)}.
 \end{itemize}
 
 \subsection{Ordering Sensitivity and Downstream Bias}
@@ -280,16 +347,32 @@ verifiable signal (a DB engine error or a result-set mismatch); upstream
 states are latent and can be judged only by proxy heuristics over $x_3$,
 $x_5$, and $x_6$.
 
-The ordering has a consequence that, to our knowledge, prior failure-attribution
-work has not measured. Because a fault at any stage propagates forward, an
-intent-stage fault almost always \emph{also} manifests as a structural
-discrepancy at $x_8$ or a result mismatch at $x_{11}$. A downstream-first
-procedure therefore encounters the symptom before it encounters the cause, and
-returns the symptom. Formally, for a fault injected at stage $s$ with observed
-label $\hat{L}$, the procedure yields $P(\hat{L} = s)$ that may be far below
-$1$ even when the injected fault is the sole cause of failure, so the
-attributed distribution $P(\hat{L})$ is not an estimator of the true fault
-distribution $P(s)$.
+The ordering has a consequence we have not seen measured in this setting. Model
+the pipeline as a chain $s_1 \to s_2 \to s_3 \to s_4$ in which a fault at
+$s_i$ perturbs every $x_j$ with $j > i$ (forward propagation), and let branch
+$b_k$ be the detector for stage $k$. A downstream-first procedure returns the
+first $k$ in the order $(4,2,3,1)$ for which $b_k$ fires, so
+\begin{equation}
+P(\hat{L}=s \mid \text{fault at } s) = P(b_s \text{ fires})\!\!\prod_{k \prec s}\!\! \left[1 - P(b_k \text{ fires})\right],
+\label{eq:bias}
+\end{equation}
+where $k \prec s$ ranges over branches evaluated before $s$. Both factors work
+against upstream stages: forward propagation raises $P(b_k \text{ fires})$ for
+downstream $k$, and the intent branch is evaluated last. The attributed
+distribution $P(\hat{L})$ is therefore a biased functional of the true fault
+distribution $P(s)$, not an estimator of it. Equation~\eqref{eq:bias} also makes
+the remedy visible: the product term disappears if branches are evaluated
+without precedence, which we return to in Section~\ref{sec:bias_results}.
+
+We flag a limitation of this analysis before presenting the data, because it
+bounds what the measurement can show. The product term in
+Equation~\eqref{eq:bias} is not merely unfavourable to the intent branch---for
+the perturbations used here it is close to zero \emph{by construction}, since
+the two gating conditions above cannot fire on a fluent paraphrase. A reader is
+entitled to conclude that the intent recall we report is substantially a
+property of how the intent branch was written, and only partly a property of
+the ordering. We agree, and we separate the two claims explicitly in
+Section~\ref{sec:bias_results}.
 
 Two further design choices compound this. First, the intent branch fires only
 under narrow conditions---an explicit \texttt{is\_ambiguous} flag on $x_3$, or
@@ -301,7 +384,9 @@ gold-SQL table to be absent from $x_5$; a schema agent that selects a
 
 We therefore treat the attribution heuristic as an object of measurement rather
 than as a trusted instrument, and report its behaviour in
-Section~\ref{sec:bias_results}.
+Section~\ref{sec:bias_results}. Section~\ref{sec:limitations} states what that
+measurement does and does not license us to say about state-differencing in
+general.
 
 \section{Experiments and Results}
 \label{sec:experiments}
@@ -311,7 +396,7 @@ Section~\ref{sec:bias_results}.
 
 We adopt the Spider dataset~\cite{yu_spider_2018}, a large-scale cross-domain benchmark covering approximately 200 relational databases across 138 domains, with queries categorised into four difficulty levels (\textit{Easy}, \textit{Medium}, \textit{Hard}, \textit{Extra-Hard}) by structural complexity.
 
-Two distinct data collections are used, and we state their relationship explicitly to avoid the ambiguity of a single aggregate count. \textbf{(i)~The distribution set}: all $7{,}000$ instances of the Spider \emph{training} split, executed end-to-end through the pipeline and used for the stage distribution in Section~\ref{sec:failure_dist}. \textbf{(ii)~The perturbation set}: $400$ instances drawn from the Spider \emph{validation} split and from Spider-Syn~\cite{gan_spider_syn_2021}, perturbed so that the faulty stage is fixed by construction, and used exclusively in Section~\ref{sec:bias_results} to score the attribution heuristic. The two sets are disjoint in purpose and are never pooled into a single accuracy figure. Table~\ref{tab:benchmark} summarises the perturbation set.
+Two distinct data collections are used, and we state their relationship explicitly to avoid the ambiguity of a single aggregate count. \textbf{(i)~The distribution set}: all $7{,}000$ instances of the Spider \emph{training} split, executed end-to-end through the pipeline and used for the stage distribution in Section~\ref{sec:failure_dist}. We use the training split for two reasons: it is the largest single split Spider offers, which matters because the quantity of interest is a distribution over failure categories rather than a headline accuracy, and it keeps the distribution set disjoint from the perturbation set, which is drawn from validation. The cost is that these questions are plausibly within the backbone's pretraining data, so the EX rate below should not be compared against leaderboard figures; this does not affect the attribution results, which are computed on validation-derived instances. \textbf{(ii)~The perturbation set}: $400$ instances drawn from the Spider \emph{validation} split and from Spider-Syn~\cite{gan_spider_syn_2021}, perturbed so that the faulty stage is fixed by construction, and used exclusively in Section~\ref{sec:bias_results} to score the attribution heuristic. The two sets are disjoint in purpose and are never pooled into a single accuracy figure. Table~\ref{tab:benchmark} summarises the perturbation set.
 
 \begin{table}[htbp]
 \centering
@@ -330,13 +415,20 @@ Spider-Syn        & Intent paraphrase & 200 & Intent \\
 \end{table}
 
 Ground truth for this set is established \emph{by construction} rather than by
-post-hoc annotation: a schema-proxy instance substitutes a distractor table
-name that is lexically close to the gold table, so the schema-linking stage is
-the stage placed under stress; an intent-paraphrase instance rewrites the
-question using Spider-Syn synonym substitutions that preserve the gold SQL, so
-the intent stage is the stage placed under stress. Two of the 400 items are
-duplicate \texttt{(db\_id, question)} pairs, leaving 398 unique instances; all
-reported rates use the 398 unique items.
+post-hoc annotation. A \emph{schema-proxy} instance leaves the question and the
+gold SQL untouched and modifies the database catalogue: we select one table
+referenced by the gold query and add a distractor table whose name is lexically
+close to it and whose columns are copied from it, so the schema agent must
+discriminate between two similar candidates. We stress that this construction
+\emph{adds} a distractor rather than \emph{removing} the gold table---a point
+that matters for interpreting the schema results below, since the shipped
+\texttt{SCHEMA\_MISSING} detector fires only on absence. An
+\emph{intent-paraphrase} instance leaves the database and the gold SQL
+untouched and replaces the question with its Spider-Syn synonym substitution,
+which preserves the gold SQL by construction~\cite{gan_spider_syn_2021}. Two of
+the 400 items are duplicate \texttt{(db\_id, question)} pairs, both in the
+schema-proxy family, leaving $200$ intent and $198$ schema instances; all
+reported rates use these $398$ unique items.
 
 We emphasise a methodological point that motivates the whole of
 Section~\ref{sec:bias_results}. Construction-time ground truth is weaker than
@@ -353,7 +445,7 @@ The experiments are conducted in a standardised Multi-Agent environment:
 
 \begin{itemize}
   \item \textbf{LLM Backbone:} All pipeline executions are powered by
-  GPT-4o. This model serves as the primary reasoning engine, responsible
+  gpt-4o-mini. This model serves as the primary reasoning engine, responsible
   for intent parsing, schema filtering, and SQL skeleton construction.
   \item \textbf{Execution Environment:} Predicted SQL queries are executed
   against local SQLite databases to obtain deterministic execution feedback
@@ -366,9 +458,10 @@ The experiments are conducted in a standardised Multi-Agent environment:
 
 \noindent\textbf{Note on pipeline EX rate.}
 Our MAS pipeline achieves a $62.21\%$ end-to-end EX rate on the Spider train
-set before rerun, improving to $70.10\%$ after self-correction (both computed
-over the $6{,}782$ instances that completed without infrastructure failure;
-see below). This is intentionally below published state-of-the-art EX figures
+set before rerun ($4{,}066$ of the $6{,}536$ instances that completed
+pre-rerun), improving to $70.10\%$ after self-correction ($4{,}754$ of the
+$6{,}782$ completed post-rerun; the denominators differ because rerun also
+recovers instances that had previously timed out, see below). This is intentionally below published state-of-the-art EX figures
 because our pipeline is designed as a \emph{diagnostic testbed} rather than a
 performance-optimised system---the diagnostic value of the Logging Matrix
 depends on failures being present to attribute.
@@ -578,28 +671,48 @@ Three findings follow, and none is favourable to the method as originally
 conceived.
 
 \noindent\textbf{(1)~Stage recall is zero.} Of $98$ intent-perturbed instances
-that failed, none was attributed to the intent stage. Of $54$ schema-perturbed
-instances that failed, none was attributed to the schema stage---despite the
-schema-proxy perturbation being designed to trip exactly the
-\texttt{SCHEMA\_MISSING\_TABLE} detector. The heuristic did not merely
-underperform; on this benchmark it never once identified the injected stage.
+that failed, none was attributed to the intent stage ($0/98$; Wilson $95\%$ CI
+$[0.0\%, 3.8\%]$). Of $54$ schema-perturbed instances that failed, none was
+attributed to the schema stage ($0/54$; CI $[0.0\%, 6.6\%]$). On this benchmark
+the heuristic never once identified the injected stage. The two zeros have
+different causes and we distinguish them. The intent zero is largely
+mechanical: as analysed in Section~\ref{sec:bias_design}, neither gating
+condition on the intent branch can fire for a fluent paraphrase, so a
+near-zero rate was predictable from the algorithm before the experiment was
+run, and the measurement confirms rather than discovers it. The schema zero is
+the informative one: the schema-proxy construction adds a distractor without
+removing the gold table, so \texttt{SCHEMA\_MISSING} is \emph{correct} not to
+fire, and the heuristic has no detector for the failure mode the perturbation
+actually induces---selecting a plausible but wrong table. The wider CI on the
+schema row ($n=54$) should temper how strongly this second zero is read.
 
-\noindent\textbf{(2)~Misattribution is near-constant across conditions.}
+\noindent\textbf{(2)~We cannot detect a difference between the two conditions.}
 Among failures, intent-injected faults were labelled Skeleton in $60.2\%$ of
 cases and Execution in $38.8\%$; schema-injected faults were labelled Skeleton
-in $61.1\%$ and Execution in $38.9\%$. The two rows are, within sampling
-noise, the same distribution. The output is therefore close to independent of
-the input: knowing where the fault was injected tells one almost nothing about
-what the heuristic will report, which is the defining property of an
-uninformative measurement. The attributed distribution reflects the ordering
-of Algorithm~\ref{alg:backdiff} and the relative sizes of its downstream
-catch-all branches, not the provenance of the fault.
+in $61.1\%$ and Execution in $38.9\%$. Restricting to the Skeleton/Execution
+cells, a $\chi^2$ test of independence gives $\chi^2 = 0.001$, $p = 0.97$: the
+two rows are statistically indistinguishable. We are deliberate about what this
+does and does not establish. A large $p$-value is not evidence of independence;
+with $n = 151$ the $95\%$ CI on the difference in Skeleton proportion spans
+roughly $\pm 16$ percentage points, so a true difference as large as $15$
+points is not excluded. The defensible statement is that this benchmark, at
+this sample size, recovers \emph{no} signal about fault provenance from the
+heuristic's output---not that the mutual information is provably zero. An
+equivalence test against a pre-registered margin would be needed for the
+stronger claim, and we did not run one.
 
 \noindent\textbf{(3)~Perturbations frequently fail to perturb.} $246$ of $398$
 instances ($61.8\%$) were answered correctly despite perturbation. Synonym
 substitution and table-name proxying are evidently within the tolerance of a
-GPT-4o-backed pipeline, which bounds the sensitivity of any benchmark built
-this way and should inform the design of stronger perturbations.
+gpt-4o-mini-backed pipeline, which bounds the sensitivity of any benchmark built
+this way and should inform the design of stronger perturbations. It also
+carries a threat to construct validity we cannot resolve here: among the
+$38.2\%$ that did fail, construction certifies where the fault was
+\emph{injected} but not that the pipeline failed \emph{there}. If a
+perturbation is weak enough to be tolerated most of the time, the instances
+where it is not tolerated may be ones that would have failed regardless.
+Settling this requires either human annotation or counterfactual re-execution;
+we specify the latter in Section~\ref{sec:limitations} and have not yet run it.
 
 \noindent\textbf{Consequence for the reported distribution.} Under a heuristic
 with zero recall at two of four stages, Table~\ref{tab:failures} cannot be
@@ -610,23 +723,45 @@ Table~\ref{tab:failures} but relabel it \emph{framework-attributed}, and we
 withdraw the claim---made in an earlier version of this work---that structural
 skeleton reasoning is empirically the dominant failure source in MAS
 Text-to-SQL. That claim is not supported by an instrument that cannot
-distinguish a skeleton fault from an intent fault.
+distinguish a skeleton fault from an intent fault on this benchmark.
 
-\noindent\textbf{Why we report this rather than repair it.} A natural response
-is to reorder Algorithm~\ref{alg:backdiff} upstream-first and re-run. We
-expect this to help and intend to pursue it, but it does not dissolve the
-problem: an upstream-first ordering will over-attribute to intent by the
-mirror-image mechanism, and there is no ordering that is neutral, because the
-stages are not independently observable. The deeper issue is that
-single-pass state-differencing over a forward-propagating pipeline is
-attempting to identify a cause from a downstream symptom, and cascading
+We resist one further generalisation that the result invites. Nothing here
+establishes that backward state-differencing is \emph{inherently} incapable of
+stage attribution; it establishes that \emph{our} implementation, whose intent
+branch cannot fire on paraphrases and whose schema branch tests only for
+absence, recovers nothing on \emph{these} two perturbation families. A single
+heuristic on a single pipeline cannot separate a property of the method class
+from a defect of one implementation, and we make no claim about the class
+(Section~\ref{sec:limitations}).
+
+\noindent\textbf{Why we report this rather than repair it.} Two repairs suggest
+themselves and we assess them honestly. Reordering
+Algorithm~\ref{alg:backdiff} upstream-first is the obvious one; we expect it to
+over-attribute to intent by the mirror-image mechanism, so it trades one bias
+for another rather than removing it. The second follows from
+Equation~\eqref{eq:bias}: the product term vanishes if branches are evaluated
+\emph{without} precedence, so an ordering-free variant---evaluate every
+detector and rank stages by independent evidence strength---escapes the
+precedence mechanism by construction. We have now measured it, and it does not
+help. Re-scoring saved logs from a published multi-agent system under three
+rules (downstream-first, upstream-first, evidence-ranked) at zero additional
+inference cost, the ordering-free rule is the \emph{worst} of the three
+($10.1\%$ overall recall versus $14.9\%$ for either ordering under gpt-4o-mini, and
+$8.0\%$ versus $13.7\%$ under a local open-weight backbone), because roughly a
+third of failures produce ties between comparably-strong detectors. Escaping
+precedence is not the same as recovering signal. We report this because it
+falsifies the remedy we would otherwise have proposed.
+
+What survives both repairs is the deeper obstacle. Single-pass
+state-differencing infers a cause from a downstream symptom, and cascading
 failure does not admit that inversion without either counterfactual
 re-execution---re-running the pipeline with stage $i$'s output replaced by its
-gold value---or a genuinely independent judge. We regard the measurement
-protocol of this section, rather than any particular heuristic, as the
-transferable contribution: it is cheap, it requires only construction-time
-ground truth, and it would have caught this failure in any of the
-attribution systems surveyed in Section~\ref{sec:related}.
+gold value---or a genuinely independent judge such as the human annotation used
+to build MAST~\cite{cemri_mast_2025}. We regard the measurement protocol of
+this section, rather than any particular heuristic, as the transferable
+contribution: it is cheap, it requires only construction-time ground truth, and
+it is applicable to the attribution systems surveyed in
+Section~\ref{sec:related}.
 
 \section{Limitations}
 \label{sec:limitations}
@@ -639,7 +774,36 @@ stage recall on the perturbation benchmark. Every stage-level proportion in
 this paper inherits that defect and is reported as framework-attributed
 output, not as a pipeline property.
 
-\noindent\textbf{Single backbone.} All $7{,}000$ executions use GPT-4o. The
+\noindent\textbf{A single heuristic, and what that forbids.} We measured one
+attribution procedure on one pipeline. This is sufficient to invalidate our own
+distribution and to demonstrate the protocol, and insufficient to characterise
+backward state-differencing as a class: a zero obtained from one implementation
+cannot be separated from a defect of that implementation, and
+Section~\ref{sec:bias_results} identifies two such defects in ours. We
+explicitly do \emph{not} claim the downstream-bias mechanism is architectural.
+Our own follow-up work makes the point concretely. Applying the same protocol
+to a published multi-agent system over Dr.Spider's perturbation families
+($1{,}700$ instances, $496$ failures, two backbones), stage recall for the
+schema stage is $73.9\%$ under gpt-4o-mini and $78.0\%$ under a local open-weight
+backbone---not zero. Backward state-differencing is therefore not inherently
+blind, and the zero reported here belongs to this implementation. Two
+observations from that follow-up do transfer. First, the intent detector fires
+on \emph{none} of $496$, $664$, and $102$ failures across two systems and two
+backbones, and its recall stays at zero even under an ordering-free rule, so
+the intent zero is a property of the artifact being inspected rather than of
+scan order. Second, engine-rejection evidence is present in $0$--$1.7\%$ of
+failures, independently corroborating this paper's surviving claim about
+execution-level repair. Full results accompany the released artifacts; they are
+outside this paper's scope and are reported separately.
+
+\noindent\textbf{Ground-truth validity.} Construction-time labels certify where
+a fault was injected, not where the pipeline failed. Section~\ref{sec:bias_results}
+finding~(3) shows this is not a hypothetical concern at a $61.8\%$ pass rate.
+Every recall figure in this paper is conditional on the assumption that a
+perturbed-at-$X$ instance which fails is an instance that failed at $X$, and
+that assumption is untested here.
+
+\noindent\textbf{Single backbone.} All $7{,}000$ executions use gpt-4o-mini. The
 attributed distribution may differ substantially for open-weight models with
 different failure profiles, and the downstream bias itself, though we expect
 it to be architectural rather than model-specific, has not been shown to
@@ -650,7 +814,7 @@ distribution reported here is generalised.
 the natural next target: it is SQLite-backed and single-turn, so the Logging
 Matrix applies without modification, and its \texttt{evidence} field maps onto
 the $x_2$ external-knowledge slot, which is dormant in the present setup.
-Dr.~Spider~\cite{chang_drspider_2022} would extend the perturbation benchmark
+Dr.~Spider~\cite{chang_drspider_2023} would extend the perturbation benchmark
 from two fault families to seventeen, directly strengthening
 Section~\ref{sec:bias_results}. Spider~2.0 and SParC lie outside the current
 architecture---the former requires non-SQLite engines and enterprise-scale
@@ -663,6 +827,22 @@ subset of faults strong enough to break the pipeline.
 \noindent\textbf{Exact Match.} Not reported, for the reasons given in
 Section~\ref{sec:experiments}. Our implementation was a string comparison, not
 Spider's Exact Set Match.
+
+\noindent\textbf{Open items.} Four measurements would materially strengthen the
+claims above and are not yet run. \textbf{TODO~1} (\emph{done, reported above}): the ordering-free variant was
+scored and is worse than either ordering; the intent zero survives it, which
+attributes that zero to detector inadequacy rather than to precedence. It could
+not be scored on this paper's own $398$ logs, which were not retained---a
+reproducibility failure we record rather than conceal, and which the released
+artifacts are intended to prevent recurring.
+\textbf{TODO~2}: counterfactual re-execution on the $152$ failing instances,
+replacing stage $i$'s output with its gold value, to test whether the
+benchmark's stage labels are themselves correct. \textbf{TODO~3}: independent
+human annotation of the same $152$ instances with inter-annotator agreement, as
+a second check on ground truth. \textbf{TODO~4} (\emph{partially done}): a second, open-weight backbone
+reproduces the qualitative pattern in the follow-up setting; it has not been
+run on this paper's own perturbation set.
+We state these as open rather than reporting provisional numbers.
 
 \section{Conclusion}
 \label{sec:conclusion}
@@ -689,18 +869,21 @@ The stronger claim---that structural skeleton reasoning is therefore the
 dominant failure source---does depend on it, and our own measurement does not
 support it. Scoring the heuristic against $398$ perturbation instances with
 construction-time ground truth yields $0\%$ stage recall on both injected
-intent and injected schema faults, with misattribution proportions almost
-identical across the two conditions. Backward state-differencing over a
-forward-propagating pipeline systematically returns the symptom rather than
-the cause. We therefore report our stage distribution as framework-attributed
-and withdraw the dominance claim rather than defend it.
+intent and injected schema faults, and the label distributions produced by the
+two injection conditions are statistically indistinguishable
+($\chi^2 = 0.001$, $p = 0.97$). We therefore report our stage distribution as
+framework-attributed and withdraw the dominance claim rather than defend it.
+We stop short of the stronger conclusion the result invites: this is a
+measurement of one heuristic on one pipeline, and Section~\ref{sec:limitations}
+sets out why it cannot support a claim about backward state-differencing in
+general.
 
 We take the negative result to be the more useful contribution. Automated
 failure attribution is being adopted faster than it is being
-validated~\cite{zhang2025which}, and a heuristic that produces confident,
-plausible, well-formed stage labels while being nearly independent of the true
-fault stage is a specific hazard for this literature: its output looks like
-evidence. The protocol of Section~\ref{sec:bias_results} is a cheap guard
+validated~\cite{zhang2025which, cemri_mast_2025}, and a heuristic that produces
+confident, plausible, well-formed stage labels while carrying no detectable
+signal about the true fault stage is a specific hazard for this literature: its
+output looks like evidence. The protocol of Section~\ref{sec:bias_results} is a cheap guard
 against that---inject faults at known stages, score recall, and publish the
 confusion matrix alongside any distribution.
 
@@ -708,7 +891,7 @@ Two directions follow. Counterfactual attribution, in which stage $i$'s output
 is replaced by its gold value and the remainder of the pipeline re-executed,
 would establish causal rather than correlational attribution at the cost of
 additional inference. Extending the perturbation benchmark to
-Dr.~Spider's~\cite{chang_drspider_2022} seventeen fault families, and the
+Dr.~Spider's~\cite{chang_drspider_2023} seventeen fault families, and the
 pipeline to BIRD and to additional backbones, would test whether the
 downstream bias reported here is architectural, as we suspect, or particular
 to this configuration. Extending the Logging Matrix to conversational

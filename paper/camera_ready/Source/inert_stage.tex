@@ -1,0 +1,52 @@
+
+\begin{tikzpicture}[
+  font=\small,
+  stage/.style   = {rectangle, rounded corners=2pt, draw=black!70, thick,
+                    minimum width=2.3cm, minimum height=0.95cm,
+                    align=center, fill=blue!6},
+  faulty/.style  = {stage, fill=orange!22, draw=orange!75!black,
+                    dash pattern=on 3pt off 2pt},
+  noted/.style   = {stage, fill=black!4, draw=black!50},
+  logbox/.style  = {rectangle, draw=black!35, dashed, inner sep=3pt,
+                    align=center, font=\scriptsize, fill=black!2},
+  note/.style    = {align=left, font=\scriptsize},
+  fwd/.style     = {-{Stealth[length=2.2mm]}, thick, black!75}
+]
+\node[stage]                            (intent)  at (0,0) {\textbf{1. Intent}\\\scriptsize agent};
+\node[faulty, right=1.0cm of intent]    (schema)  {\textbf{2. Schema}\\\scriptsize selector};
+\node[noted, right=1.0cm of schema]    (skeleton){\textbf{3. Skeleton}\\\scriptsize agent};
+\node[stage,  right=1.0cm of skeleton]  (exec)    {\textbf{4. Execution}\\\scriptsize agent};
+
+\draw[fwd] (intent)   -- (schema);
+\draw[fwd] (schema)   -- (skeleton);
+\draw[fwd] (skeleton) -- (exec);
+\node[note, text width=13.6cm, anchor=south west] (q) at ([xshift=-0.4cm, yshift=1.15cm]intent.north west)
+  {\textbf{Input} (\texttt{world\_1}: 4 tables, 26 columns): ``What are
+   the Asian countries which have a population larger than that of every
+   country in Africa?''\\[1pt]
+   \textcolor{orange!75!black}{\textbf{Perturbation (Schema):}} columns
+   abbreviated --- \texttt{population}\,$\to$\,\texttt{popn},
+   \texttt{continent}\,$\to$\,\texttt{cont}};
+
+\draw[fwd] ([yshift=-2pt]q.south -| intent.north) -- (intent.north);
+\node[note, text width=3.0cm, anchor=north] (c1) at ([yshift=-0.75cm]schema.south)
+  {\textcolor{orange!75!black}{\textbf{schema perturbed}} --- 26 columns do
+   not meet the Selector threshold. The full schema is forwarded; no decision
+   is emitted};
+
+\node[note, text width=3.0cm, anchor=north] (c2) at ([yshift=-0.75cm]skeleton.south)
+  {\texttt{MAX(popn)} is correct for the every-country reading. The example
+   shows Schema inactivity, not a Skeleton failure};
+
+\draw[black!45, dotted, thick] (schema.south)   -- ([yshift=1pt]c1.north);
+\draw[black!45, dotted, thick] (skeleton.south) -- ([yshift=1pt]c2.north);
+\node[logbox, anchor=north] (l1) at ([yshift=-3.55cm]intent.south)   {question, \texttt{db\_id}\\decomposition};
+\node[logbox, anchor=north] (l2) at ([yshift=-3.55cm]schema.south)   {full schema\\forwarded schema \textcolor{black!55}{($\equiv$ full)}};
+\node[logbox, anchor=north] (l3) at ([yshift=-3.55cm]skeleton.south) {candidate SQL\\selected SQL};
+\node[logbox, anchor=north] (l4) at ([yshift=-3.55cm]exec.south)     {engine error\\result rows, repair};
+
+\node[draw=black!45, dashed, rounded corners=2pt, inner sep=5pt,
+      fit=(l1)(l4), label={[font=\scriptsize\bfseries, yshift=-1pt]below:%
+      Logged artifacts, per agent boundary}] (matrix) {};
+
+\end{tikzpicture}

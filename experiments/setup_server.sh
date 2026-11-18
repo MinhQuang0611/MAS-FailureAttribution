@@ -22,12 +22,15 @@ cd "$ROOT"
 PY="${PYTHON:-python3}"
 log() { printf '\n\033[1;36m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[1;33m !! %s\033[0m\n' "$*"; }
+die_missing() { printf '\033[1;31m !! %s\033[0m\n' "$*" >&2; exit 1; }
 
 # Pinned so a re-run months from now reproduces the same baselines.
 MACSQL_URL=https://github.com/wbbeyourself/MAC-SQL.git
 MACSQL_SHA=31a9df5e0d520be4769be57a4b9022e5e34a14f4
 MAGSQL_URL=https://github.com/Lancelot-Xie/MAG-SQL.git
 MAGSQL_SHA=e69c494de198d0a25ca1fa19e3837cfd36590cdb
+DINSQL_URL=https://github.com/MohammadrezaPourreza/Few-shot-NL2SQL-with-prompting.git
+DINSQL_SHA=0474801616130413b024fd008b016a190684649e
 CHESS_URL=https://github.com/ShayanTalaei/CHESS.git
 CHESS_SHA=3d6e835f858d26885d21d4bc0215aeecf855efbe
 
@@ -52,21 +55,31 @@ else
   mkdir -p data/raw
   if [ ! -f data/raw/spider_data.zip ]; then
     echo "  downloading Spider (~200 MB)..."
+    # The upstream zip has disappeared from HuggingFace before; a failure here
+    # is not fatal because Dr.Spider ships the same dev databases (step 3).
     curl -fL --retry 3 -o data/raw/spider_data.zip "$SPIDER_URL" \
-      || { warn "Spider download failed. Place spider_data.zip in data/raw/ manually."; exit 1; }
+      || { rm -f data/raw/spider_data.zip
+           warn "Spider download failed ($SPIDER_URL)."
+           warn "Falling back to the Spider-dev databases bundled with Dr.Spider."; }
   fi
-  mkdir -p data/raw/spider_unzipped
-  unzip -q -o data/raw/spider_data.zip -d data/raw/spider_unzipped
-  echo "  extracted"
+  if [ -f data/raw/spider_data.zip ]; then
+    mkdir -p data/raw/spider_unzipped
+    unzip -q -o data/raw/spider_data.zip -d data/raw/spider_unzipped
+    echo "  extracted"
+  fi
 fi
 
 # The pipeline and all baselines resolve databases at data/databases/<id>/<id>.sqlite
 if [ ! -d data/databases ] || [ -z "$(ls -A data/databases 2>/dev/null)" ]; then
-  echo "  populating data/databases from Spider..."
-  mkdir -p data/databases
-  cp -r "$SPIDER_DIR/database/." data/databases/
+  if [ -d "$SPIDER_DIR/database" ]; then
+    echo "  populating data/databases from Spider..."
+    mkdir -p data/databases
+    cp -r "$SPIDER_DIR/database/." data/databases/
+  else
+    echo "  deferred to step 3 (Dr.Spider Spider-dev databases)"
+  fi
 fi
-echo "  data/databases: $(find data/databases -maxdepth 1 -mindepth 1 -type d | wc -l) databases"
+echo "  data/databases: $(find data/databases -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l) databases"
 
 # ---------------------------------------------------------------------------
 log "3/6  Dr.Spider perturbation corpus"
@@ -81,6 +94,18 @@ else
   mkdir -p data/raw/drspider
   tar -xzf data/raw/drspider.tar.gz -C data/raw/drspider
   echo "  extracted $(find data/raw/drspider -maxdepth 1 -mindepth 1 -type d | wc -l) perturbation sets"
+fi
+
+# Fallback for step 2: Dr.Spider bundles the 20 Spider dev databases, which are
+# the only ones the sampled benchmark references (the DB_* sets get namespaced
+# copies in step 5).
+if [ -z "$(ls -A data/databases 2>/dev/null)" ]; then
+  [ -d data/raw/drspider/Spider-dev/databases ] \
+    || die_missing "no Spider databases: the download failed and Dr.Spider carries none"
+  echo "  populating data/databases from Dr.Spider Spider-dev..."
+  mkdir -p data/databases
+  cp -r data/raw/drspider/Spider-dev/databases/. data/databases/
+  echo "  data/databases: $(find data/databases -maxdepth 1 -mindepth 1 -type d | wc -l) databases"
 fi
 
 # ---------------------------------------------------------------------------
@@ -117,6 +142,50 @@ apply_override() {   # name
 
 clone_pinned MAC-SQL "$MACSQL_URL" "$MACSQL_SHA"; apply_override MAC-SQL
 clone_pinned MAG-SQL "$MAGSQL_URL" "$MAGSQL_SHA"; apply_override MAG-SQL
+
+# MAG-SQL hardcodes its value-match cache at ./data/bird/dev/match_content.json.
+# That directory does not exist here, and one shared file across 17 Dr.Spider
+# sets would serve one set's matches to another. Make it env-driven; the runner
+# points MAGSQL_MATCH_CACHE at a per-set file. Idempotent string replacement,
+# not a patch hunk, so line-ending normalisation cannot break it.
+$PY - <<'PYFIX'
+from pathlib import Path
+p = Path("baselines/MAG-SQL/main_scripts/MAG.py")
+old = "        matched_dict_path = './data/bird/dev/match_content.json'"
+new = ("        matched_dict_path = os.environ.get("
+       "'MAGSQL_MATCH_CACHE', './data/bird/dev/match_content.json')")
+s = p.read_text(encoding="utf-8")
+if new in s:
+    print("  MAG-SQL match cache: already env-driven")
+else:
+    assert old in s, "MAG.py no longer contains the hardcoded cache path"
+    p.write_text(s.replace(old, new), encoding="utf-8")
+    print("  MAG-SQL match cache: now read from $MAGSQL_MATCH_CACHE")
+PYFIX
+clone_pinned DIN-SQL "$DINSQL_URL" "$DINSQL_SHA"
+# DIN-SQL ships as a script, not a module: it parses sys.argv at import time and
+# its line 444 (`API_KEY = #key`) is not valid Python, so the published file
+# cannot be imported at all. Replace exactly that block with an env-driven
+# header plus an openai<1.0 -> >=1.0 transport shim. Prompts, few-shot
+# exemplars, sampling parameters and control flow are untouched, so
+# `git -C baselines/DIN-SQL diff` shows the whole change. Idempotent.
+$PY - <<'PYFIX'
+import sys
+from pathlib import Path
+sys.path.insert(0, "baselines/overrides/DIN-SQL")
+import _harness_shim as shim
+
+p = Path("baselines/DIN-SQL/DIN-SQL.py")
+s = p.read_text(encoding="utf-8")
+if "harness shim (attributability audit)" in s:
+    print("  DIN-SQL: shim already applied")
+elif shim.UPSTREAM_BLOCK in s:
+    p.write_text(s.replace(shim.UPSTREAM_BLOCK, shim.HEADER), encoding="utf-8")
+    print("  DIN-SQL: argv/API-key block replaced, openai>=1.0 transport installed")
+else:
+    raise SystemExit("DIN-SQL.py no longer contains the expected argv/API-key block")
+PYFIX
+
 if [ "${WITH_CHESS:-0}" = "1" ]; then
   clone_pinned CHESS "$CHESS_URL" "$CHESS_SHA"
   warn "CHESS is BIRD-only (no Spider support); it cannot use the Dr.Spider benchmark."

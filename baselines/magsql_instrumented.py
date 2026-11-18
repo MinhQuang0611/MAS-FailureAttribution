@@ -47,12 +47,19 @@ load_dotenv(EXP / ".env")
 sys.path.insert(0, str(EXP))
 sys.path.insert(0, str(EXP / "baselines" / "MAG-SQL"))
 
+from baselines import macsql_instrumented as mac  # noqa: E402
 from baselines.macsql_instrumented import (  # noqa: E402
-    BENCH_DIR, SPIDER_TABLES, ensure_tables_json, execution_match, tables_in_sql,
+    DATASETS, SPIDER_TABLES, AbsPath, ensure_tables_json, execution_match,
+    model_slug, tables_in_sql,
 )
 
-OUT_DIR = EXP / "output_logs" / "magsql_drspider"
-ADAPTED = EXP / "data" / "drspider_benchmark" / "_magsql"
+# BENCH_DIR is rebound per --dataset in main(), so it is read through the
+# module rather than bound once at import time.
+BENCH_DIR = mac.BENCH_DIR
+
+OUT_DIR = EXP / "output_logs" / "magsql_drspider"  # rebound in main()
+DATASET_NAME = "spider"   # rebound per --dataset in main()
+ADAPTED = EXP / "data" / "drspider_benchmark" / "_magsql"  # rebound per dataset
 
 TRACKED = ("pruned", "desc_str", "fk_str", "pk_str", "extracted_schema",
            "chosen_db_schem_dict", "matched_list", "summary_str",
@@ -73,13 +80,25 @@ def adapt_dataset(bench_file: Path, set_name: str) -> Path:
         a = dict(r)
         a["question_id"] = i
         a["query"] = r["gold_sql"]
+        # BIRD field MAG-SQL reads unconditionally; Spider records have none.
+        a.setdefault("evidence", "")
         adapted.append(a)
     out.write_text(json.dumps(adapted, ensure_ascii=False, indent=1),
                    encoding="utf-8")
     return out
 
 
-def instrument(chat_manager, sink: list):
+def instrument(chat_manager, sink_ref: list):
+    """Wrap each agent's talk() ONCE per ChatManager.
+
+    `sink_ref` is a one-element list holding the trace for the instance
+    currently running; the caller swaps `sink_ref[0]` between instances.
+    Re-calling this per instance instead would nest a fresh wrapper on top of
+    every previous one, so by instance N each agent call ran N wrappers and N
+    deepcopies of TRACKED. The on-disk logs stayed correct -- each wrapper
+    writes to its own captured trace -- but the run slowed and the retained
+    traces grew without bound.
+    """
     for agent in chat_manager.chat_group:
         original = agent.talk
         name = agent.name
@@ -97,7 +116,7 @@ def instrument(chat_manager, sink: list):
                 raise
             finally:
                 after = {k: copy.deepcopy(message.get(k)) for k in TRACKED}
-                sink.append({
+                sink_ref[0].append({
                     "agent": _name,
                     "elapsed_s": round(time.time() - t0, 3),
                     "error": err,
@@ -175,16 +194,24 @@ def to_log_entry(item, msg, trace, match, exec_err, elapsed, model):
     }
 
 
-def run_set(s, limit, model, done: set) -> tuple[int, int]:
+def run_set(s, limit, model, done: set, label=None) -> tuple[int, int]:
     from main_scripts.chat_manager import ChatManager
     from main_scripts.const import SYSTEM_NAME
 
     set_name, group = s["set"], s["group"]
-    tables = ensure_tables_json(set_name, group, s.get("namespaced_suffix"))
+    tables = ensure_tables_json(set_name, group, s.get("namespaced_suffix"),
+                                s.get("tables_json"))
     db_dir = EXP / s["db_dir"]
     bench_file = EXP / s["benchmark_file"]
 
     recs = json.loads(bench_file.read_text(encoding="utf-8"))
+    # MAG-SQL's value-match cache is keyed on the record's position in the FULL
+    # corpus (adapt_dataset stamps question_id = index into `recs`). Deriving it
+    # from the position in `todo` instead silently shifts every lookup by the
+    # number of already-done records on any resumed run, so a question is handed
+    # another question's matches -- and once the shifted index runs past the
+    # cache, matched_list is None and the Selector emits an empty schema.
+    corpus_pos = {r["id"]: i for i, r in enumerate(recs)}
     todo = [r for r in recs if r["id"] not in done]
     if limit:
         todo = todo[:limit]
@@ -193,24 +220,52 @@ def run_set(s, limit, model, done: set) -> tuple[int, int]:
         return 0, 0
 
     adapted = adapt_dataset(bench_file, set_name)
+
+    # Per-set value-match cache. Upstream hardcodes one BIRD path for the whole
+    # corpus, which would hand one perturbation set another set's matches.
+    cache = ADAPTED / f"_match_{set_name}.json"
+    cache.parent.mkdir(parents=True, exist_ok=True)
+    # Upstream's _data_prematch() reuses any cache file that exists, without
+    # checking that it covers the corpus. A cache built when the benchmark was
+    # smaller therefore survives the benchmark growing, and every record past
+    # its last key gets matched_list=None. Drop a short cache so it rebuilds.
+    if cache.exists():
+        try:
+            covered = len(json.loads(cache.read_text(encoding="utf-8")))
+        except Exception:
+            covered = -1
+        if covered != len(recs):
+            print(f"    stale value-match cache ({covered} entries for "
+                  f"{len(recs)} records) -- rebuilding", flush=True)
+            cache.unlink()
+    os.environ["MAGSQL_MATCH_CACHE"] = str(cache)
+
     print("    preprocessing (value matching + per-table LLM summaries)...",
           flush=True)
 
-    cm = ChatManager(data_path=str(db_dir), tables_json_path=str(tables),
+    cm = ChatManager(data_path=AbsPath(db_dir), tables_json_path=str(tables),
                      log_path=str(OUT_DIR / f"_magsql_{set_name}.log"),
-                     model_name=model, dataset_name="spider",
+                     model_name=model, dataset_name=DATASET_NAME,
                      dataset_path=str(adapted), lazy=True)
 
     ok = fail = 0
+    sink_ref: list = [None]
+    instrument(cm, sink_ref)
     for i, item in enumerate(todo, 1):
         trace: list = []
-        msg = {"idx": i, "db_id": item["db_id"], "query": item["question"],
-               "evidence": "", "extracted_schema": {},
+        sink_ref[0] = trace
+        # NOTE: the Selector reads message['idx'] -- not question_id -- to look
+        # up the value-match cache (MAG.py:709). question_id is only consulted
+        # when the cache is BUILT (MAG.py:384). Both must therefore carry the
+        # record's position in the full corpus, or the Selector is handed
+        # another question's matched values.
+        msg = {"idx": corpus_pos[item["id"]], "db_id": item["db_id"],
+               "query": item["question"],
+               "evidence": item.get("evidence", ""), "extracted_schema": {},
                "ground_truth": item["gold_sql"], "difficulty": "unknown",
-               "question_id": i - 1, "send_to": SYSTEM_NAME}
+               "question_id": corpus_pos[item["id"]], "send_to": SYSTEM_NAME}
         t0 = time.time()
         try:
-            instrument(cm, trace)
             cm.start(msg)
             db = db_dir / item["db_id"] / f"{item['db_id']}.sqlite"
             match, exec_err = execution_match(db, msg.get("pred") or "",
@@ -222,7 +277,7 @@ def run_set(s, limit, model, done: set) -> tuple[int, int]:
             ok += 1
 
         entry = to_log_entry(item, msg, trace, match, exec_err,
-                             time.time() - t0, model)
+                             time.time() - t0, label or model)
         (OUT_DIR / f"{item['id']}.json").write_text(
             json.dumps(entry, ensure_ascii=False, indent=1), encoding="utf-8")
 
@@ -233,31 +288,50 @@ def run_set(s, limit, model, done: set) -> tuple[int, int]:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--dataset", default="drspider", choices=sorted(DATASETS))
     ap.add_argument("--groups", nargs="*", default=["NLQ", "SQL", "DB"])
     ap.add_argument("--sets", nargs="*", default=None)
     ap.add_argument("--limit", type=int, default=None)
-    ap.add_argument("--model", default=os.getenv("MAGSQL_MODEL", "gpt-4o"))
+    ap.add_argument("--model", default=os.getenv("MAGSQL_MODEL", "gpt-4o-mini"))
+    # The id to record and to name the log directory with. Differs from --model
+    # when a provider prefix routes the call: --model qwen3:32b is what the API
+    # is asked for, --label ollama/qwen3:32b is what the results are filed under.
+    ap.add_argument("--label", default=None)
     args = ap.parse_args()
 
+    global OUT_DIR, BENCH_DIR, DATASET_NAME, ADAPTED
+    ds = DATASETS[args.dataset]
+    BENCH_DIR = EXP / ds["bench"]
+    DATASET_NAME = ds["upstream_name"]
+    ADAPTED = BENCH_DIR / "_magsql"
+
+    label = args.label or args.model
+    # Results are filed per dataset AND per backbone: the resume check keys on
+    # the instance id alone, so anything sharing a directory is treated as
+    # already scored.
+    OUT_DIR = EXP / "output_logs" / f"magsql_{ds['tag']}" / model_slug(label)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    done = {p.stem for p in OUT_DIR.glob("drspider_*.json")}
+    done = {p.stem for p in OUT_DIR.glob("*.json") if not p.name.startswith("_")}
     if done:
         print(f"resuming — {len(done)} instances already logged\n")
 
     man = json.loads((BENCH_DIR / "manifest.json").read_text(encoding="utf-8"))
     sets = [s for s in man["sets"]
             if (args.sets and s["set"] in args.sets)
-            or (not args.sets and s["group"] in args.groups)]
-    sets.sort(key=lambda s: ({"NLQ": 0, "SQL": 1, "DB": 2}[s["group"]], s["set"]))
+            or (not args.sets and s["group"] in args.groups)
+            or (not args.sets and s["group"] not in ("NLQ", "SQL", "DB"))]
+    sets.sort(key=lambda s: ({"NLQ": 0, "SQL": 1, "DB": 2}.get(s["group"], 9),
+                             s["set"]))
 
-    print(f"MAG-SQL over {len(sets)} Dr.Spider sets | model={args.model}\n")
+    print(f"MAG-SQL over {len(sets)} {args.dataset} sets | model={args.model}\n")
     t0 = time.time()
     tot_ok = tot_fail = 0
     for i, s in enumerate(sets, 1):
-        print(f"[{i}/{len(sets)}] {s['set']} ({s['group']} -> {s['target_stage']})",
+        print(f"[{i}/{len(sets)}] {s['set']} "
+              f"({s['group']} -> {s.get('target_stage') or 'no stage ground truth'})",
               flush=True)
         try:
-            ok, fail = run_set(s, args.limit, args.model, done)
+            ok, fail = run_set(s, args.limit, args.model, done, label)
         except Exception as e:
             print(f"    !! set failed: {type(e).__name__}: {e}", flush=True)
             continue

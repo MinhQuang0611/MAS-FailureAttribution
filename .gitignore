@@ -58,6 +58,7 @@ scratch/
 # pinned commits + baselines/patches/*.patch. Never commit the clones.
 baselines/MAC-SQL/
 baselines/MAG-SQL/
+baselines/DIN-SQL/
 baselines/CHESS/
 baselines/MARS-SQL/
 
@@ -73,3 +74,25 @@ data/drspider_benchmark/tables_*.json
 
 # Generated figures
 *.png
+
+# Unattended sweep transcripts (run.sh writes its own log under output_logs/)
+run_*.out
+
+/student_research
+
+# Private/submission artifacts — keep out of version control
+paper/*.eml
+paper/*Licence*.pdf
+paper/*ProceedingsPaper*.docx
+paper/camera_ready/*.docx
+paper/camera_ready/*.pdf
+paper/camera_ready/*.zip
+paper/camera_ready/Corresponding_Author.txt
+
+# Generated benchmark exports and rendered paper artifacts
+data/bird_benchmark/**/*.json
+paper/*.pdf
+paper/figs/*.pdf
+docs/*.pdf
+docs/*.pptx
+docs/*.pptx.*

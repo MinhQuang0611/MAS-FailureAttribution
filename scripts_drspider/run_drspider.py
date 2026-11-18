@@ -38,7 +38,7 @@ def main() -> int:
     ap.add_argument("--groups", nargs="*", default=["NLQ", "SQL", "DB"])
     ap.add_argument("--limit", type=int, default=None,
                     help="cap instances per set (smoke test)")
-    ap.add_argument("--model", default="gpt-4o")
+    ap.add_argument("--model", default="gpt-4o-mini")
     args = ap.parse_args()
 
     man = json.loads((BENCH / "manifest.json").read_text(encoding="utf-8"))

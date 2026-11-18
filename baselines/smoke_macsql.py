@@ -37,7 +37,7 @@ cm = ChatManager(
     data_path=str(DBDIR),
     tables_json_path=str(TABLES),
     log_path=str(EXP / "output_logs" / "macsql_smoke" / "log.txt"),
-    model_name=os.getenv("MACSQL_MODEL", "gpt-4o"),
+    model_name=os.getenv("MACSQL_MODEL", "gpt-4o-mini"),
     dataset_name="spider",
     lazy=True,
 )
